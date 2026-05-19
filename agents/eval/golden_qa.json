@@ -1,0 +1,102 @@
+[
+  {
+    "question": "How many unemployment days am I allowed on OPT?",
+    "ground_truth": "F-1 OPT allows a maximum of 90 cumulative unemployment days. Days count 7 days a week including weekends. Exceeding 90 days can result in status termination.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "Does the 150-day STEM OPT limit include my initial OPT unemployment days?",
+    "ground_truth": "Yes. The 150-day limit for STEM OPT is cumulative and includes any unemployment days accrued during your initial 12-month OPT period. For example, if you used 20 unemployment days during OPT, you only have 130 days remaining during STEM OPT.",
+    "visa_type": "stem"
+  },
+  {
+    "question": "How long is the H-1B grace period if I lose my job?",
+    "ground_truth": "USCIS provides a 60-day grace period after involuntary job loss on H-1B. During this time you must find a new H-1B sponsor, change to another valid status, or depart the United States.",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "When is the earliest I can apply for OPT?",
+    "ground_truth": "You can apply for OPT up to 90 days before your program end date (graduation). You should apply early because USCIS processing takes approximately 3-5 months and premium processing is not available for OPT EADs.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "Does my employer need to be E-Verify registered for STEM OPT?",
+    "ground_truth": "Yes. For STEM OPT, your employer must be enrolled in the E-Verify program. You can verify employer enrollment at e-verify.gov. This is a mandatory requirement — you cannot work on STEM OPT for a non-E-Verify employer.",
+    "visa_type": "stem"
+  },
+  {
+    "question": "How many times can I enter the H-1B lottery?",
+    "ground_truth": "You can enter the H-1B lottery once per year during the annual registration period in March. If you have a US master's degree or higher, you get two entries — one in the regular cap pool (65,000 slots) and one in the advanced degree exemption pool (20,000 additional slots).",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "What happens if I exceed 90 unemployment days on OPT?",
+    "ground_truth": "Exceeding 90 unemployment days on OPT means you have violated your F-1 status. Your SEVIS record may be terminated, which means you lose your F-1 status and must stop working immediately. You should contact your DSO and potentially consult an immigration attorney about your options, which may include changing status or departing the US.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "Can I do freelance work on OPT?",
+    "ground_truth": "Self-employment is allowed on OPT but it is complex. You can be self-employed if you are actively working in your field of study. However, you must be able to show that you are actively engaged in work related to your degree. Days when you are not generating income may still count as unemployment days. Consult your DSO for guidance.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "How long does STEM OPT extension last?",
+    "ground_truth": "The STEM OPT extension lasts 24 months, extending your total OPT authorization to 36 months (12 months initial OPT plus 24 months STEM extension). Only one STEM OPT extension is allowed per degree level.",
+    "visa_type": "stem"
+  },
+  {
+    "question": "What is H-1B cap exemption?",
+    "ground_truth": "Cap-exempt employers can sponsor H-1B workers without going through the annual lottery. Cap-exempt employers include institutions of higher education, non-profit organizations affiliated with universities, and government research organizations. If your employer is cap-exempt, they can file an H-1B petition at any time of year.",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "What is the 60-day grace period after OPT ends?",
+    "ground_truth": "After your OPT EAD expires, you have a 60-day grace period. During this time you cannot work, but you can remain in the US to prepare for departure, change your immigration status, or begin a new academic program. You cannot extend this grace period.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "When should I apply for STEM OPT extension?",
+    "ground_truth": "You should apply for STEM OPT at least 90 days before your current OPT EAD expires. This is both the earliest you can apply and the recommended timeline to avoid gaps. Filing early ensures your application is processed before your OPT expires and protects your ability to continue working.",
+    "visa_type": "stem"
+  },
+  {
+    "question": "Do weekends count as unemployment days on OPT?",
+    "ground_truth": "Yes. Unemployment days on OPT count every calendar day including weekends and holidays. The 90-day limit is based on calendar days, not business days. So if you are unemployed for two weeks, that is 14 unemployment days regardless of weekends.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "Can I travel outside the US while unemployed on OPT?",
+    "ground_truth": "You can travel outside the US while on OPT, but days spent outside the US while unemployed still count toward your 90-day unemployment limit. There is no pause or stop on unemployment day counting when you travel internationally. Additionally, re-entering the US requires a valid visa stamp, unexpired EAD, and a job offer letter.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "What is H-1B portability?",
+    "ground_truth": "H-1B portability allows you to change employers after your H-1B has been approved for 180 days. Your new employer must file an H-1B transfer petition, and you can start working for the new employer as soon as the petition is filed — you do not need to wait for approval. This is a significant protection that allows flexibility in changing jobs.",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "What is the I-983 Training Plan for STEM OPT?",
+    "ground_truth": "Form I-983 is a Training Plan for STEM OPT students that must be completed before starting STEM OPT employment. It documents your learning objectives, how the job relates to your STEM degree, and how your employer will supervise and evaluate your training. Both you and your employer must sign it, and it must be submitted to your DSO. You must also submit updates every 12 months.",
+    "visa_type": "stem"
+  },
+  {
+    "question": "How does the H-1B lottery work?",
+    "ground_truth": "The H-1B lottery opens for electronic registration in March each year. Employers register candidates at a cost of $215 per registration. USCIS randomly selects from registrations to fill the 65,000 regular cap slots and 20,000 advanced degree exemption slots. Selected candidates are notified and employers then have 90 days to file full petitions. H-1B employment starts October 1 of that year.",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "Can I work for multiple employers on OPT?",
+    "ground_truth": "Yes, you can work for multiple employers simultaneously on OPT, as long as each job is directly related to your field of study. All employers should be listed in SEVP. Working multiple part-time jobs totaling 20+ hours per week counts as full-time employment and does not count as unemployment days.",
+    "visa_type": "opt"
+  },
+  {
+    "question": "What happens to my H-1B if my company does layoffs?",
+    "ground_truth": "If you are laid off from your H-1B job, USCIS provides a 60-day grace period. During this time you must either find a new H-1B sponsor who files a transfer petition, change to another valid immigration status (such as F-1 or B-2), or depart the United States. Your previous employer is required to pay for your return transportation to your home country.",
+    "visa_type": "h1b"
+  },
+  {
+    "question": "What STEM degrees qualify for STEM OPT extension?",
+    "ground_truth": "STEM OPT is available for degrees in fields designated by DHS as STEM, based on specific CIP (Classification of Instructional Programs) codes. Common qualifying fields include Computer Science, Engineering (all types), Mathematics, Statistics, Data Science, Information Technology, Physics, Chemistry, and Biology. You should verify your specific degree's CIP code with your DSO, as not all science degrees qualify.",
+    "visa_type": "stem"
+  }
+]
