@@ -1,21 +1,22 @@
 .page { }
 .pageHeader { margin-bottom: 2rem; }
-.pageHeader h1 { font-size: 2rem; color: var(--text-primary); }
-.subtitle { color: var(--text-secondary); margin-top: 4px; }
+.pageHeader h1 { font-size: 2.2rem; color: var(--text-primary); }
+.pageHeader h1 span { color: var(--accent); }
+.subtitle { color: var(--text-secondary); margin-top: 6px; font-size: 0.95rem; }
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  grid-template-columns: minmax(380px, 1fr) minmax(420px, 1.4fr);
+  gap: 2rem;
   align-items: start;
 }
-@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 
 .card {
-  background: var(--surface-1);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -31,15 +32,15 @@
 .select, .input {
   width: 100%;
   padding: 8px 10px;
-  background: var(--surface-3);
+  background: var(--slate-900);
   border: 1px solid var(--border-md);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: 0.875rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: all 0.15s;
 }
-.select:focus, .input:focus { border-color: var(--accent); }
+.select:focus, .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 .input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -56,15 +57,16 @@
 }
 
 .addBtn {
-  padding: 4px 10px;
+  padding: 5px 12px;
   background: transparent;
-  border: 1px solid var(--border-md);
+  border: 1px solid rgba(249,115,22,0.35);
   border-radius: var(--radius-sm);
   color: var(--accent);
   font-size: 0.8rem;
-  transition: background 0.15s;
+  font-weight: 500;
+  transition: all 0.15s;
 }
-.addBtn:hover { background: var(--accent-glow); }
+.addBtn:hover { background: var(--accent-glow); border-color: var(--accent); }
 
 .delBtn {
   background: none;
@@ -80,16 +82,17 @@
 
 .calcBtn {
   width: 100%;
-  padding: 11px;
+  padding: 12px;
   background: var(--accent);
   border: none;
   border-radius: var(--radius-md);
   color: #fff;
   font-size: 0.9rem;
   font-weight: 500;
-  transition: opacity 0.15s;
+  letter-spacing: 0.01em;
+  transition: background 0.15s;
 }
-.calcBtn:hover { opacity: 0.88; }
+.calcBtn:hover { background: var(--accent-dark); }
 
 /* Results */
 .emptyState {
@@ -121,10 +124,10 @@
   margin-bottom: 1rem;
 }
 .metricCard {
-  background: var(--surface-1);
+  background: var(--surface-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: 14px 16px;
 }
 .metricLabel { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
 .metricVal { font-size: 1.6rem; font-weight: 300; }

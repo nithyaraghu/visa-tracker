@@ -4,12 +4,13 @@
   min-height: 100vh;
 }
 
+/* ── Header ── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;
-  height: 58px;
+  height: 60px;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -21,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -31,7 +32,7 @@
 .nav { display: flex; gap: 4px; }
 
 .navBtn {
-  padding: 6px 16px;
+  padding: 6px 18px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   background: transparent;
@@ -44,17 +45,31 @@
 .navBtn.active {
   color: var(--accent);
   background: var(--accent-glow);
-  border-color: rgba(59,130,246,0.25);
+  border-color: rgba(249,115,22,0.3);
 }
 
+/* ── Main content ── */
 .main {
   flex: 1;
-  max-width: 960px;
   width: 100%;
+  max-width: 1400px;   /* wider for large monitors */
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 3rem;
 }
 
+/* Scale up on very large screens */
+@media (min-width: 1800px) {
+  .main { max-width: 1600px; padding: 3rem 4rem; }
+}
+
+/* Scale down on small screens */
+@media (max-width: 768px) {
+  .main { padding: 1.5rem 1rem; }
+  .header { padding: 0 1rem; }
+  .navBtn { padding: 6px 10px; font-size: 0.8rem; }
+}
+
+/* ── Footer ── */
 .footer {
   text-align: center;
   padding: 1.25rem;
