@@ -29,10 +29,17 @@ function AppInner() {
     if (!user) { setOnboarded(null); return }
     supabase
       .from('user_visa_data')
-      .select('onboarded, visa_type')
+      .select('onboarded, visa_type, auth_start, auth_end, employment_periods, opt_auth_start, opt_auth_end, opt_periods, enrolled_months, cpt_program_start, cpt_program_end')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          // If query fails (e.g. RLS issue), check localStorage fallback
+          const local = localStorage.getItem(`visaguard_onboarded_${user.id}`)
+          setOnboarded(local === 'true')
+          console.warn('[onboarding check] Supabase error:', error.message)
+          return
+        }
         setOnboarded(data?.onboarded ?? false)
         setVisaData(data)
       })
@@ -56,6 +63,8 @@ function AppInner() {
         onComplete={(data) => {
           setVisaData(data)
           setOnboarded(true)
+          // Save to localStorage as fallback in case Supabase RLS fails
+          localStorage.setItem(`visaguard_onboarded_${user.id}`, 'true')
         }}
       />
     )
