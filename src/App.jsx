@@ -34,14 +34,21 @@ function AppInner() {
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) {
-          // If query fails (e.g. RLS issue), check localStorage fallback
-          const local = localStorage.getItem(`visaguard_onboarded_${user.id}`)
-          setOnboarded(local === 'true')
-          console.warn('[onboarding check] Supabase error:', error.message)
+          // Supabase failed — load from localStorage fallback
+          const localOnboarded = localStorage.getItem(`visaguard_onboarded_${user.id}`)
+          const localData      = localStorage.getItem(`visaguard_data_${user.id}`)
+          setOnboarded(localOnboarded === 'true')
+          if (localData) setVisaData(JSON.parse(localData))
+          console.warn('[onboarding check] Supabase error, using localStorage:', error.message)
           return
         }
         setOnboarded(data?.onboarded ?? false)
-        setVisaData(data)
+        if (data) setVisaData(data)
+        // Also cache in localStorage for offline use
+        if (data?.onboarded) {
+          localStorage.setItem(`visaguard_onboarded_${user.id}`, 'true')
+          localStorage.setItem(`visaguard_data_${user.id}`, JSON.stringify(data))
+        }
       })
   }, [user])
 

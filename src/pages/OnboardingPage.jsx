@@ -133,30 +133,40 @@ export default function OnboardingPage({ user, onComplete }) {
 
   async function handleFinish() {
     setSaving(true)
-    try {
-      const data = {
-        user_id:     user.id,
-        visa_type:   visaType,
-        auth_start:  authStart || null,
-        auth_end:    authEnd   || null,
-        employment_periods: periods.map(p => ({ start: p.startStr, end: p.endStr })),
-        opt_auth_start: optAuthStart || null,
-        opt_auth_end:   optAuthEnd   || null,
-        opt_periods: optPeriods.map(p => ({ start: p.startStr, end: p.endStr })),
-        cpt_program_start: programStart || null,
-        cpt_program_end:   programEnd   || null,
-        enrolled_months: parseInt(enrolledMonths) || 0,
-        onboarded: true,
-        updated_at: new Date().toISOString(),
-      }
-
-      await supabase.from('user_visa_data').upsert(data, { onConflict: 'user_id' })
-      onComplete(data)
-    } catch (err) {
-      console.error('Save error:', err)
-      onComplete(null) // proceed anyway
+    const data = {
+      user_id:     user.id,
+      visa_type:   visaType,
+      auth_start:  authStart || null,
+      auth_end:    authEnd   || null,
+      employment_periods: periods.map(p => ({ start: p.startStr, end: p.endStr })),
+      opt_auth_start: optAuthStart || null,
+      opt_auth_end:   optAuthEnd   || null,
+      opt_periods: optPeriods.map(p => ({ start: p.startStr, end: p.endStr })),
+      cpt_program_start: programStart || null,
+      cpt_program_end:   programEnd   || null,
+      enrolled_months: parseInt(enrolledMonths) || 0,
+      onboarded: true,
+      updated_at: new Date().toISOString(),
     }
+
+    // Always save to localStorage first — this is the fallback
+    localStorage.setItem(`visaguard_onboarded_${user.id}`, 'true')
+    localStorage.setItem(`visaguard_data_${user.id}`, JSON.stringify(data))
+
+    // Try to save to Supabase
+    try {
+      const { error } = await supabase
+        .from('user_visa_data')
+        .upsert(data, { onConflict: 'user_id' })
+      if (error) console.error('[onboarding] Supabase save error:', error.message)
+      else console.log('[onboarding] Saved to Supabase')
+    } catch (err) {
+      console.error('[onboarding] Save failed:', err.message)
+    }
+
+    // Always proceed to dashboard regardless of Supabase success
     setSaving(false)
+    onComplete(data)
   }
 
   const STATUS_COLOR = {
