@@ -67,7 +67,7 @@ export default function ChatPage() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠ Error connecting to AI advisor: ${err.message}. Make sure the backend server is running (npm run server) and your ANTHROPIC_API_KEY is set in .env`
+        content: `⚠ AI advisor unavailable — backend service is starting up. Please try again in a moment.`
       }])
     } finally {
       setLoading(false)
