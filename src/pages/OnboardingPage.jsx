@@ -153,13 +153,28 @@ export default function OnboardingPage({ user, onComplete }) {
     localStorage.setItem(`visaguard_onboarded_${user.id}`, 'true')
     localStorage.setItem(`visaguard_data_${user.id}`, JSON.stringify(data))
 
-    // Try to save to Supabase
+    // Try to save to Supabase with explicit session
     try {
-      const { error } = await supabase
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[onboarding] Session:', session ? 'active' : 'none')
+      console.log('[onboarding] User ID:', user.id)
+
+      // Try insert first, then update if exists
+      const { error: insertError } = await supabase
         .from('user_visa_data')
-        .upsert(data, { onConflict: 'user_id' })
-      if (error) console.error('[onboarding] Supabase save error:', error.message)
-      else console.log('[onboarding] Saved to Supabase')
+        .insert(data)
+
+      if (insertError) {
+        console.warn('[onboarding] Insert failed:', insertError.message, '— trying update')
+        const { error: updateError } = await supabase
+          .from('user_visa_data')
+          .update({ ...data })
+          .eq('user_id', user.id)
+        if (updateError) console.error('[onboarding] Update also failed:', updateError.message)
+        else console.log('[onboarding] Updated in Supabase')
+      } else {
+        console.log('[onboarding] Inserted to Supabase')
+      }
     } catch (err) {
       console.error('[onboarding] Save failed:', err.message)
     }
