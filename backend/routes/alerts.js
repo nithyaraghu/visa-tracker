@@ -11,7 +11,7 @@ router.post('/register', async (req, res) => {
   if (!email || !visaType) {
     return res.status(400).json({ error: 'email and visaType are required' })
   }
-  if (!['opt', 'stem'].includes(visaType)) {
+  if (!['opt', 'stem', 'cpt', 'h1b', 'j1'].includes(visaType)) {
     return res.status(400).json({ error: 'visaType must be opt or stem' })
   }
 

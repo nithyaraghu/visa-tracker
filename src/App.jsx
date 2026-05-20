@@ -1,17 +1,65 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
+import { supabase } from './auth/supabase.js'
+import LoginPage from './pages/LoginPage.jsx'
+import OnboardingPage from './pages/OnboardingPage.jsx'
+import JourneyPage from './pages/JourneyPage.jsx'
 import TrackerPage from './pages/TrackerPage.jsx'
 import ChatPage from './pages/ChatPage.jsx'
 import AlertsPage from './pages/AlertsPage.jsx'
+import EligibilityPage from './pages/EligibilityPage.jsx'
 import styles from './App.module.css'
 
 const NAV = [
-  { id: 'tracker', label: 'Status Tracker' },
-  { id: 'chat',    label: 'AI Advisor'     },
-  { id: 'alerts',  label: 'Email Alerts'   },
+  { id: 'journey',     label: 'My Journey'     },
+  { id: 'tracker',     label: 'Status Tracker' },
+  { id: 'eligibility', label: 'Eligibility'    },
+  { id: 'chat',        label: 'AI Advisor'     },
+  { id: 'alerts',      label: 'Email Alerts'   },
 ]
 
-export default function App() {
-  const [page, setPage] = useState('tracker')
+function AppInner() {
+  const { user, loading, signOut } = useAuth()
+  const [page,       setPage]       = useState('tracker')
+  const [onboarded,  setOnboarded]  = useState(null)  // null = checking
+  const [visaData,   setVisaData]   = useState(null)
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    if (!user) { setOnboarded(null); return }
+    supabase
+      .from('user_visa_data')
+      .select('onboarded, visa_type')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setOnboarded(data?.onboarded ?? false)
+        setVisaData(data)
+      })
+  }, [user])
+
+  if (loading || (user && onboarded === null)) {
+    return (
+      <div className={styles.loadingScreen}>
+        <div className={styles.loadingBrand}>⚖ Visa<em>Guard</em></div>
+        <div className={styles.loadingSpinner} />
+      </div>
+    )
+  }
+
+  if (!user) return <LoginPage />
+
+  if (!onboarded) {
+    return (
+      <OnboardingPage
+        user={user}
+        onComplete={(data) => {
+          setVisaData(data)
+          setOnboarded(true)
+        }}
+      />
+    )
+  }
 
   return (
     <div className={styles.shell}>
@@ -31,17 +79,45 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className={styles.userRow}>
+          <span className={styles.userEmail}>
+            {user.user_metadata?.avatar_url ? (
+              <img
+                src={user.user_metadata.avatar_url}
+                className={styles.avatar}
+                alt=""
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span className={styles.avatarFallback}>
+                {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
+              </span>
+            )}
+            {user.user_metadata?.full_name || user.email}
+          </span>
+          <button className={styles.signOutBtn} onClick={signOut}>Sign out</button>
+        </div>
       </header>
 
       <main className={styles.main}>
-        {page === 'tracker' && <TrackerPage />}
-        {page === 'chat'    && <ChatPage />}
-        {page === 'alerts'  && <AlertsPage />}
+        {page === 'journey'     && <JourneyPage visaData={visaData} />}
+        {page === 'tracker'     && <TrackerPage initialData={visaData} />}
+        {page === 'eligibility' && <EligibilityPage />}
+        {page === 'chat'        && <ChatPage />}
+        {page === 'alerts'      && <AlertsPage user={user} />}
       </main>
 
       <footer className={styles.footer}>
         <p>VisaGuard — for informational purposes only. Always consult your DSO or immigration attorney.</p>
       </footer>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }

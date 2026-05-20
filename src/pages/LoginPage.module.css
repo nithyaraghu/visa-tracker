@@ -1,0 +1,177 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--slate-950);
+  padding: 2rem 1rem;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.05) 0%, transparent 60%);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.brandIcon { font-size: 1.3rem; }
+.brandName em { font-style: normal; color: var(--accent); }
+
+.title {
+  font-size: 1.6rem;
+  color: var(--text-primary);
+  margin-bottom: -4px;
+}
+
+.sub {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.error {
+  padding: 10px 14px;
+  background: var(--danger-soft);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: #fca5a5;
+}
+
+.success {
+  padding: 10px 14px;
+  background: var(--success-soft);
+  border: 1px solid rgba(34,197,94,0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: #86efac;
+}
+
+/* Google button */
+.googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.googleBtn:hover { background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.googleBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.label { font-size: 0.78rem; color: var(--text-secondary); letter-spacing: 0.03em; text-transform: uppercase; }
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--slate-900);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.15s;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input::placeholder { color: var(--text-muted); }
+
+/* Primary button */
+.primaryBtn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+.primaryBtn:hover:not(:disabled) { background: var(--accent-dark); }
+.primaryBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* OTP alternative button */
+.otpBtn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+.otpBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.otpBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Toggle / link buttons */
+.toggle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linkBtn:hover { color: var(--accent-dark); }
+
+.disclaimer {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
