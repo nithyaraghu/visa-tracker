@@ -27,6 +27,18 @@ function AppInner() {
   // Check if user has completed onboarding
   useEffect(() => {
     if (!user) { setOnboarded(null); return }
+
+    // First verify we have a valid session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        console.warn('[app] No session found')
+        const local = localStorage.getItem(`visaguard_onboarded_${user.id}`)
+        setOnboarded(local === 'true')
+        return
+      }
+      console.log('[app] Checking onboarding for:', session.user.id)
+    })
+
     supabase
       .from('user_visa_data')
       .select('onboarded, visa_type, auth_start, auth_end, employment_periods, opt_auth_start, opt_auth_end, opt_periods, enrolled_months, cpt_program_start, cpt_program_end')

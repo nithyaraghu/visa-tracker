@@ -153,30 +153,32 @@ export default function OnboardingPage({ user, onComplete }) {
     localStorage.setItem(`visaguard_onboarded_${user.id}`, 'true')
     localStorage.setItem(`visaguard_data_${user.id}`, JSON.stringify(data))
 
-    // Try to save to Supabase with explicit session
+    // Save to Supabase — wait for valid session first
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[onboarding] Session:', session ? 'active' : 'none')
-      console.log('[onboarding] User ID:', user.id)
+      // Refresh session to ensure we have a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      // Try insert first, then update if exists
-      const { error: insertError } = await supabase
-        .from('user_visa_data')
-        .insert(data)
-
-      if (insertError) {
-        console.warn('[onboarding] Insert failed:', insertError.message, '— trying update')
-        const { error: updateError } = await supabase
-          .from('user_visa_data')
-          .update({ ...data })
-          .eq('user_id', user.id)
-        if (updateError) console.error('[onboarding] Update also failed:', updateError.message)
-        else console.log('[onboarding] Updated in Supabase')
+      if (sessionError || !session) {
+        console.error('[onboarding] No valid session:', sessionError?.message)
       } else {
-        console.log('[onboarding] Inserted to Supabase')
+        console.log('[onboarding] Session valid, saving...')
+        console.log('[onboarding] User:', session.user.id)
+
+        const { error } = await supabase
+          .from('user_visa_data')
+          .upsert(
+            { ...data, user_id: session.user.id },
+            { onConflict: 'user_id', ignoreDuplicates: false }
+          )
+
+        if (error) {
+          console.error('[onboarding] Supabase error:', error.code, error.message, error.details)
+        } else {
+          console.log('[onboarding] ✓ Saved to Supabase')
+        }
       }
     } catch (err) {
-      console.error('[onboarding] Save failed:', err.message)
+      console.error('[onboarding] Save exception:', err.message)
     }
 
     // Always proceed to dashboard regardless of Supabase success
