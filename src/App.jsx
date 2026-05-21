@@ -10,17 +10,20 @@ import AlertsPage from './pages/AlertsPage.jsx'
 import EligibilityPage from './pages/EligibilityPage.jsx'
 import styles from './App.module.css'
 
-const NAV = [
-  { id: 'journey',     label: 'My Journey'     },
-  { id: 'tracker',     label: 'Status Tracker' },
-  { id: 'eligibility', label: 'Eligibility'    },
-  { id: 'chat',        label: 'AI Advisor'     },
-  { id: 'alerts',      label: 'Email Alerts'   },
-]
+function getNav(visaType) {
+  const base = [
+    { id: 'journey',     label: 'My Journey'     },
+    { id: 'tracker',     label: 'Status Tracker' },
+    { id: 'eligibility', label: 'Eligibility'    },
+    { id: 'chat',        label: 'AI Advisor'     },
+    { id: 'alerts',      label: 'Email Alerts'   },
+  ]
+  return base
+}
 
 function AppInner() {
   const { user, loading, signOut } = useAuth()
-  const [page,       setPage]       = useState('tracker')
+  const [page,       setPage]       = useState('journey')
   const [onboarded,  setOnboarded]  = useState(null)  // null = checking
   const [visaData,   setVisaData]   = useState(null)
 
@@ -97,7 +100,7 @@ function AppInner() {
           <span className={styles.brandName}>Visa<em>Guard</em></span>
         </div>
         <nav className={styles.nav}>
-          {NAV.map(n => (
+          {getNav().map(n => (
             <button
               key={n.id}
               className={`${styles.navBtn} ${page === n.id ? styles.active : ''}`}

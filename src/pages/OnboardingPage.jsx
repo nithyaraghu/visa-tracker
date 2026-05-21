@@ -26,16 +26,6 @@ const VISA_CARDS = [
     tracks: 'unemployment'
   },
   {
-    id: 'h1b',
-    label: 'H-1B',
-    sublabel: 'Specialty Occupation',
-    icon: '💼',
-    rule: '60-day grace period',
-    color: '#8b5cf6',
-    desc: 'Employer-sponsored work visa',
-    tracks: 'unemployment'
-  },
-  {
     id: 'cpt',
     label: 'F-1 CPT',
     sublabel: 'Curricular Practical Training',
@@ -73,10 +63,10 @@ export default function OnboardingPage({ user, onComplete }) {
   const [programStart, setProgramStart] = useState('')
   const [programEnd, setProgramEnd]     = useState('')
   const [enrolledMonths, setEnrolledMonths] = useState('12')
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]           = useState(false)
 
   const selectedCard = VISA_CARDS.find(c => c.id === visaType)
-  const isCPT = visaType === 'cpt'
+  const isCPT  = visaType === 'cpt'
   const totalSteps = isCPT ? 3 : (visaType === 'stem' ? 4 : 3)
 
   const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
@@ -237,7 +227,7 @@ export default function OnboardingPage({ user, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 1: Authorization dates ── */}
+        {/* ── Step 2: Authorization dates ── */}
         {step === 1 && !isCPT && (
           <div className={styles.stepContent}>
             <div className={styles.stepBadge} style={{ color: selectedCard?.color, background: `${selectedCard?.color}18` }}>

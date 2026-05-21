@@ -17,16 +17,6 @@ const THRESHOLD_INFO = {
     { days: 14, level: 'warn',     label: 'Advisory',      desc: '14 days — notify your DSO of the gap' },
     { days: 30, level: 'urgent',   label: 'Extended gap',  desc: '30 days — contact DSO immediately' },
     { days: 60, level: 'critical', label: 'Prolonged',     desc: '60 days — risk to CPT authorization' },
-  ],
-  h1b: [
-    { days: 30, level: 'warn',     label: 'Early warning', desc: '30 days — begin new H-1B sponsorship process' },
-    { days: 50, level: 'urgent',   label: 'Urgent',        desc: '50 days — 10 days left, act immediately' },
-    { days: 58, level: 'critical', label: 'Critical',      desc: '58 days — 2 days from 60-day grace period limit' },
-  ],
-  j1: [
-    { days: 14, level: 'warn',     label: 'Advisory',      desc: '14 days — contact your J-1 sponsor' },
-    { days: 30, level: 'urgent',   label: 'Extended gap',  desc: '30 days — sponsor notification required' },
-    { days: 45, level: 'critical', label: 'Critical',      desc: '45 days — program status at risk' },
   ]
 }
 
@@ -106,7 +96,7 @@ export default function AlertsPage() {
                 <select className={styles.select} value={form.visaType}
                   onChange={e => setForm(f => ({ ...f, visaType: e.target.value }))}>
                   {Object.entries(VISA_RULES)
-                    .filter(([k]) => ['opt','stem','cpt','h1b','j1'].includes(k))
+                    .filter(([k]) => ['opt','stem','cpt'].includes(k))
                     .map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>

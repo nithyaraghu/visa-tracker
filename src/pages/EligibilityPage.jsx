@@ -240,7 +240,7 @@ export default function EligibilityPage() {
   const TABS = [
     { id: 'opt',  label: 'OPT Eligibility'      },
     { id: 'stem', label: 'STEM OPT Eligibility'  },
-    { id: 'h1b',  label: 'H-1B Lottery Tracker'  },
+  
   ]
 
   return (

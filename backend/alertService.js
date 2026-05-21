@@ -11,7 +11,7 @@ const getResend = () => {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
-const LIMITS = { opt: 90, stem: 150, h1b: 60 }
+const LIMITS = { opt: 90, stem: 150 }
 const THRESHOLDS = {
   opt: [
     { days: 60, level: 'warn',     subject: 'OPT Alert: 60 unemployment days reached' },
@@ -27,16 +27,6 @@ const THRESHOLDS = {
     { days: 14, level: 'warn',     subject: 'CPT Advisory: 14-day gap — notify your DSO' },
     { days: 30, level: 'urgent',   subject: '⚡ CPT Advisory: 30-day gap — contact DSO immediately' },
     { days: 60, level: 'critical', subject: '🚨 CPT Advisory: 60-day gap — authorization at risk' },
-  ],
-  h1b: [
-    { days: 30, level: 'warn',     subject: 'H-1B Alert: 30-day grace period used — begin new sponsorship' },
-    { days: 50, level: 'urgent',   subject: '⚡ H-1B Alert: 50 days used — only 10 days remaining' },
-    { days: 58, level: 'critical', subject: '🚨 H-1B Critical: 58/60 days — 2 days left in grace period' },
-  ],
-  j1: [
-    { days: 14, level: 'warn',     subject: 'J-1 Advisory: 14-day gap — contact your sponsor' },
-    { days: 30, level: 'urgent',   subject: '⚡ J-1 Advisory: 30-day gap — sponsor notification required' },
-    { days: 45, level: 'critical', subject: '🚨 J-1 Advisory: 45-day gap — program status at risk' },
   ]
 }
 
