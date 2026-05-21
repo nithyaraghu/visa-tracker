@@ -107,15 +107,24 @@ function calcOptCarryOver(optAuthStartStr, optAuthEndStr, optPeriods) {
   return Math.max(0, gapDays)
 }
 
-export default function TrackerPage() {
-  const [visaType, setVisaType]     = useState('opt')
-  const [authStart, setAuthStart]   = useState('')
-  const [authEnd, setAuthEnd]       = useState('')
-  const [periods, setPeriods]       = useState([newPeriod()])
-  const [calculated, setCalculated] = useState(false)
-  const [optAuthStart, setOptAuthStart] = useState('')
-  const [optAuthEnd, setOptAuthEnd]     = useState('')
-  const [optPeriods, setOptPeriods]     = useState([newPeriod()])
+export default function TrackerPage({ initialData }) {
+  // Seed state from onboarding data if available
+  const initPeriods = initialData?.employment_periods?.length
+    ? initialData.employment_periods.map(p => ({ id: ++_id, startStr: p.start || '', endStr: p.end || '' }))
+    : [newPeriod()]
+
+  const initOptPeriods = initialData?.opt_periods?.length
+    ? initialData.opt_periods.map(p => ({ id: ++_id, startStr: p.start || '', endStr: p.end || '' }))
+    : [newPeriod()]
+
+  const [visaType, setVisaType]     = useState(initialData?.visa_type || 'opt')
+  const [authStart, setAuthStart]   = useState(initialData?.auth_start || '')
+  const [authEnd, setAuthEnd]       = useState(initialData?.auth_end || '')
+  const [periods, setPeriods]       = useState(initPeriods)
+  const [calculated, setCalculated] = useState(!!(initialData?.auth_start))
+  const [optAuthStart, setOptAuthStart] = useState(initialData?.opt_auth_start || '')
+  const [optAuthEnd, setOptAuthEnd]     = useState(initialData?.opt_auth_end || '')
+  const [optPeriods, setOptPeriods]     = useState(initOptPeriods)
 
   const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
   const removePeriod = id => setPeriods(p => p.filter(x => x.id !== id))
@@ -147,6 +156,32 @@ export default function TrackerPage() {
 
   const meta = result ? STATUS_META[result.status] : null
   const rule = VISA_RULES[visaType]
+
+  // Save updated data back to Supabase when user recalculates
+  async function handleSave() {
+    setCalculated(true)
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      )
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      await sb.from('user_visa_data').update({
+        visa_type:   visaType,
+        auth_start:  authStart || null,
+        auth_end:    authEnd   || null,
+        employment_periods: periods.map(p => ({ start: p.startStr, end: p.endStr })),
+        opt_auth_start: optAuthStart || null,
+        opt_auth_end:   optAuthEnd   || null,
+        opt_periods: optPeriods.map(p => ({ start: p.startStr, end: p.endStr })),
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', session.user.id)
+    } catch (err) {
+      console.warn('[tracker] Auto-save failed:', err.message)
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -254,7 +289,7 @@ export default function TrackerPage() {
             ))}
           </div>
 
-          <button className={styles.calcBtn} onClick={() => setCalculated(true)}>
+          <button className={styles.calcBtn} onClick={handleSave}>
             Calculate unemployment days
           </button>
         </div>

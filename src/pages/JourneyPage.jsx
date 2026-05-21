@@ -435,10 +435,13 @@ export default function JourneyPage({ visaData }) {
     } catch { return null }
   }, [visaData])
 
-  if (!visaData) {
+  if (!visaData || !visaData.visa_type) {
     return (
       <div className={styles.empty}>
-        <p>No visa data found. Please complete onboarding.</p>
+        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📊</div>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          No visa data yet. Go to <strong>Status Tracker</strong> to enter your details.
+        </p>
       </div>
     )
   }
