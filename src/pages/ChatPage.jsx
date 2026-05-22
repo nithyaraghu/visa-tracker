@@ -48,7 +48,8 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/chat', {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+      const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -67,7 +68,7 @@ export default function ChatPage() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠ AI advisor unavailable — backend service is starting up. Please try again in a moment.`
+        content: `⚠ Error connecting to AI advisor: ${err.message}. Make sure the backend server is running (npm run server) and your ANTHROPIC_API_KEY is set in .env`
       }])
     } finally {
       setLoading(false)
@@ -83,7 +84,7 @@ export default function ChatPage() {
       <div className={styles.pageHeader}>
         <h1>AI Visa Advisor</h1>
         <p className={styles.subtitle}>
-          Powered by Claude with live web search — always answers with current USCIS policy
+          Powered by Groq/Llama with live web search — always answers with current USCIS policy
         </p>
       </div>
 
