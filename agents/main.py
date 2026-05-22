@@ -4,6 +4,16 @@
 
 import os
 from fastapi import FastAPI, HTTPException
+
+# ── LangSmith tracing (free tier: 5k traces/month) ───────────────
+# Enables observability for all LangGraph agent runs
+# View traces at: https://smith.langchain.com
+if os.getenv("LANGCHAIN_API_KEY"):
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_PROJECT"]    = os.getenv("LANGCHAIN_PROJECT", "visaguard")
+    print(f"[tracing] LangSmith enabled → project: {os.environ['LANGCHAIN_PROJECT']}")
+else:
+    print("[tracing] LangSmith disabled (no LANGCHAIN_API_KEY)")
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv

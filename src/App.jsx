@@ -111,6 +111,22 @@ function AppInner() {
           ))}
         </nav>
         <div className={styles.userRow}>
+          <button
+            className={styles.resetBtn}
+            title="Change visa type or update your details"
+            onClick={async () => {
+              if (!window.confirm('Reset your visa setup? You can re-enter your details.')) return
+              localStorage.removeItem(`visaguard_onboarded_${user.id}`)
+              localStorage.removeItem(`visaguard_data_${user.id}`)
+              const { createClient } = await import('@supabase/supabase-js')
+              const sb = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+              await sb.from('user_visa_data').update({ onboarded: false }).eq('user_id', user.id)
+              setOnboarded(false)
+              setVisaData(null)
+            }}
+          >
+            ⚙ Edit setup
+          </button>
           <span className={styles.userEmail}>
             {user.user_metadata?.avatar_url ? (
               <img
@@ -131,10 +147,10 @@ function AppInner() {
       </header>
 
       <main className={styles.main}>
-        {page === 'journey'     && <JourneyPage visaData={visaData} />}
+        {page === 'journey'     && <JourneyPage visaData={visaData || JSON.parse(localStorage.getItem(`visaguard_data_${user?.id}`) || 'null')} />}
         {page === 'tracker'     && <TrackerPage initialData={visaData} />}
         {page === 'eligibility' && <EligibilityPage />}
-        {page === 'chat'        && <ChatPage />}
+        {page === 'chat'        && <ChatPage visaData={visaData} />}
         {page === 'alerts'      && <AlertsPage user={user} />}
       </main>
 

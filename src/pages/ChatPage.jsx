@@ -28,7 +28,7 @@ const SUGGESTED = [
   'Can I travel abroad while unemployed on OPT?',
 ]
 
-export default function ChatPage() {
+export default function ChatPage({ visaData }) {
   const [messages, setMessages] = useState([])
   const [input, setInput]       = useState('')
   const [loading, setLoading]   = useState(false)
@@ -54,7 +54,7 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages,
-          system: SYSTEM_PROMPT
+          system: buildSystemPrompt(visaData)
         })
       })
 
