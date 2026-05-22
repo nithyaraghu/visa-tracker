@@ -1,0 +1,11 @@
+# Don't include these in the Docker image
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+*.log
+.pytest_cache/
+eval/eval_results.json
+README.md
