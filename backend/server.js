@@ -28,13 +28,13 @@ const MessageSchema = z.object({
 
 const ChatSchema = z.object({
   messages: z.array(MessageSchema).min(1).max(50),   // 1-50 messages
-  system:   z.string().max(2000).optional(),          // optional system prompt
+  system:   z.string().max(8000).optional(),          // optional system prompt
 })
 
 const AlertSchema = z.object({
   email:        z.string().email(),                   // must be valid email
   name:         z.string().max(100).optional(),
-  visaType:     z.enum(['opt', 'stem', 'h1b', 'cpt', 'j1']),
+  visaType:     z.enum(['opt', 'stem', 'cpt']),
   authStart:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD
   authEnd:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   alertLevels:  z.array(z.enum(['warn', 'urgent', 'critical'])).optional(),
@@ -44,7 +44,7 @@ const AlertSchema = z.object({
 function validate(schema, body) {
   const result = schema.safeParse(body)
   if (!result.success) {
-    const errors = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+    const errors = result.error?.errors?.map(e => `${e.path.join('.')}: ${e.message}`) || ['Invalid request body']
     return { valid: false, errors }
   }
   return { valid: true, data: result.data }

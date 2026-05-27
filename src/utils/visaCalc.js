@@ -26,25 +26,6 @@ export const VISA_RULES = {
     milestones: [30, 14],
     limitType: 'advisory',
     advisoryNote: 'CPT has no legal unemployment limit. These are advisory alerts — notify your DSO if gaps are prolonged.'
-  },
-  h1b: {
-    label: 'H-1B',
-    limit: 60,
-    description: 'USCIS 60-day grace period after job loss. Must find new sponsor, change status, or depart within 60 days.',
-    thresholds: { warn: 30, urgent: 50, critical: 58 },
-    milestones: [30, 10],
-    limitType: 'hard',
-    advisoryNote: null
-  },
-  j1: {
-    label: 'J-1 Exchange Visitor',
-    limit: null,
-    description: 'Limits vary by program category and DS-2019 sponsor. Check with your sponsor.',
-    // Advisory: most J-1 programs require continuous engagement
-    thresholds: { warn: 14, urgent: 30, critical: 45 },
-    milestones: [30, 14],
-    limitType: 'advisory',
-    advisoryNote: 'J-1 limits depend on your program category and sponsor. Contact your sponsor immediately if you have an unexpected gap.'
   }
 }
 

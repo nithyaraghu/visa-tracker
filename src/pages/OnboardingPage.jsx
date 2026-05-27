@@ -151,8 +151,6 @@ export default function OnboardingPage({ user, onComplete }) {
       if (sessionError || !session) {
         console.error('[onboarding] No valid session:', sessionError?.message)
       } else {
-        console.log('[onboarding] Session valid, saving...')
-        console.log('[onboarding] User:', session.user.id)
 
         const { error } = await supabase
           .from('user_visa_data')
@@ -164,7 +162,6 @@ export default function OnboardingPage({ user, onComplete }) {
         if (error) {
           console.error('[onboarding] Supabase error:', error.code, error.message, error.details)
         } else {
-          console.log('[onboarding] ✓ Saved to Supabase')
         }
       }
     } catch (err) {
@@ -276,13 +273,13 @@ export default function OnboardingPage({ user, onComplete }) {
             <div className={styles.row2}>
               <div className={styles.field}>
                 <label className={styles.label}>
-                  {visaType === 'stem' ? 'STEM OPT start' : visaType === 'h1b' ? 'H-1B start date' : 'OPT start date'}
+                  {visaType === 'stem' ? 'STEM OPT start' : 'OPT start date'}
                 </label>
                 <input type="date" className={styles.input} value={authStart} onChange={e => setAuthStart(e.target.value)} />
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>
-                  {visaType === 'stem' ? 'STEM OPT end' : visaType === 'h1b' ? 'I-94 expiry' : 'OPT end date (EAD expiry)'}
+                  {visaType === 'stem' ? 'STEM OPT end' : 'OPT end date (EAD expiry)'}
                 </label>
                 <input type="date" className={styles.input} value={authEnd} onChange={e => setAuthEnd(e.target.value)} />
               </div>

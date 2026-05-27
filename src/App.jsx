@@ -39,7 +39,6 @@ function AppInner() {
         setOnboarded(local === 'true')
         return
       }
-      console.log('[app] Checking onboarding for:', session.user.id)
     })
 
     supabase
@@ -118,9 +117,7 @@ function AppInner() {
               if (!window.confirm('Reset your visa setup? You can re-enter your details.')) return
               localStorage.removeItem(`visaguard_onboarded_${user.id}`)
               localStorage.removeItem(`visaguard_data_${user.id}`)
-              const { createClient } = await import('@supabase/supabase-js')
-              const sb = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
-              await sb.from('user_visa_data').update({ onboarded: false }).eq('user_id', user.id)
+                await supabase.from('user_visa_data').update({ onboarded: false }).eq('user_id', user.id)
               setOnboarded(false)
               setVisaData(null)
             }}
@@ -151,7 +148,7 @@ function AppInner() {
         {page === 'tracker'     && <TrackerPage initialData={visaData} />}
         {page === 'eligibility' && <EligibilityPage />}
         {page === 'chat'        && <ChatPage visaData={visaData} />}
-        {page === 'alerts'      && <AlertsPage user={user} />}
+        {page === 'alerts'      && <AlertsPage user={user} visaData={visaData} />}
       </main>
 
       <footer className={styles.footer}>

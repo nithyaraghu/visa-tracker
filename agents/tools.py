@@ -35,7 +35,7 @@ def calculate_unemployment_days(
         auth_start: Authorization start date (YYYY-MM-DD)
         auth_end: Authorization end date (YYYY-MM-DD)  
         employment_periods: List of {start: YYYY-MM-DD, end: YYYY-MM-DD or null}
-        visa_type: One of 'opt', 'stem', 'h1b', 'cpt', 'j1'
+        visa_type: One of 'opt', 'stem', 'cpt'
     
     Returns:
         dict with unemployed_days, employed_days, gaps, status, days_remaining
@@ -133,7 +133,7 @@ def get_visa_rules(visa_type: str) -> dict:
     Get the current rules, limits, and key facts for a specific visa type.
     
     Args:
-        visa_type: One of 'opt', 'stem', 'h1b', 'cpt', 'j1'
+        visa_type: One of 'opt', 'stem', 'cpt'
     
     Returns:
         dict with rules, limits, thresholds, and key compliance facts
@@ -196,18 +196,6 @@ def get_visa_rules(visa_type: str) -> dict:
             ],
             'thresholds': {'warn': 14, 'urgent': 30, 'critical': 60}
         },
-        'j1': {
-            'name': 'J-1 Exchange Visitor',
-            'unemployment_limit': None,
-            'duration': 'Per DS-2019 program dates',
-            'key_rules': [
-                'Limits vary by program category and DS-2019 sponsor',
-                'Contact sponsor immediately if you have an unexpected gap',
-                '30-day grace period after program end date',
-                'Two-year home residency requirement may apply for some categories',
-                'Must maintain program objectives throughout authorized stay',
-            ],
-            'thresholds': {'warn': 14, 'urgent': 30, 'critical': 45}
-        }
+
     }
     return rules.get(visa_type, {'error': f'Unknown visa type: {visa_type}'})

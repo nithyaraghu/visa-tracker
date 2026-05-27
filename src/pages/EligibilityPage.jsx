@@ -1,649 +1,417 @@
+// src/pages/EligibilityPage.jsx
+// OPT and STEM OPT eligibility checker
 import { useState, useMemo } from 'react'
 import styles from './EligibilityPage.module.css'
 
-// ── Date helpers ──────────────────────────────────────────────────
-function parseDate(s) {
-  if (!s) return null
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
-function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
-function addMonths(d, n) { const r = new Date(d); r.setMonth(r.getMonth() + n); return r }
+const TABS = [
+  { id: 'opt',  label: 'OPT Eligibility'     },
+  { id: 'stem', label: 'STEM OPT Eligibility' },
+  { id: 'cpt',  label: 'CPT Eligibility'      },
+]
+
 function fmtDate(d) {
   if (!d) return '—'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-function daysUntil(d) {
+function addDays(d, n)    { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+function addMonths(d, n)  { const r = new Date(d); r.setMonth(r.getMonth() + n); return r }
+function daysFromNow(d)   {
   const today = new Date(); today.setHours(0,0,0,0)
   return Math.round((d - today) / 86400000)
 }
-function daysUntilLabel(d) {
-  const n = daysUntil(d)
-  if (n < 0)  return { label: `${Math.abs(n)} days ago`, past: true }
-  if (n === 0) return { label: 'Today', past: false }
-  return { label: `in ${n} days`, past: false }
-}
 
-// ── STEM CIP codes (sample — common STEM degrees) ─────────────────
-const STEM_DEGREES = [
-  'Computer Science / Computer Engineering',
-  'Electrical Engineering',
-  'Mechanical Engineering',
-  'Chemical Engineering',
-  'Civil Engineering',
-  'Biomedical Engineering',
-  'Data Science / Statistics',
-  'Mathematics / Applied Mathematics',
-  'Physics / Astrophysics',
-  'Biology / Biochemistry',
-  'Information Technology / MIS',
-  'Cybersecurity',
-  'Aerospace Engineering',
-  'Environmental Science / Engineering',
-  'Other STEM (verify with DSO)',
-]
+// ── OPT Eligibility ───────────────────────────────────────────────
+function OPTTab() {
+  const [gradDate,    setGradDate]    = useState('')
+  const [degreeLevel, setDegreeLevel] = useState('bachelors')
+  const [calculated,  setCalculated]  = useState(false)
 
-// ── OPT Eligibility Calculator ────────────────────────────────────
-function calcOPTEligibility(gradDate, enrolledMonths, prevOPTUsed) {
-  if (!gradDate) return null
-  const today = new Date(); today.setHours(0,0,0,0)
+  const result = useMemo(() => {
+    if (!gradDate || !calculated) return null
+    const grad = new Date(gradDate)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
 
-  // Must have been enrolled full-time for at least 1 academic year (9 months)
-  const enrollmentOk = enrolledMonths >= 9
+    const applyFrom  = addDays(grad, -90)
+    const applyBy    = addDays(grad, 60)
+    const ead5months = addMonths(today, 5)
+    const earliestStart = new Date(Math.max(grad.getTime(), today.getTime()))
 
-  // Application window: 90 days before graduation up to 60 days after
-  const earliestApply = addDays(gradDate, -90)
-  const latestApply   = addDays(gradDate, 60)
-  const optStartLatest = addDays(gradDate, 60)  // OPT must start within 60 days of graduation
+    const daysToApply    = daysFromNow(applyFrom)
+    const daysToDeadline = daysFromNow(applyBy)
+    const alreadyGraded  = grad <= today
 
-  // EAD processing: USCIS currently ~3-5 months (use 4 months as estimate)
-  const EAD_PROCESSING_DAYS = 120
-  const recommendedApplyBy = addDays(gradDate, -EAD_PROCESSING_DAYS)
-  const estimatedEADDate   = addDays(today > earliestApply ? today : earliestApply, EAD_PROCESSING_DAYS)
-
-  // OPT end date = 12 months from OPT start (assume start = grad date)
-  const optEndDate = addMonths(gradDate, 12)
-
-  const canApplyNow = today >= earliestApply && today <= latestApply
-  const windowOpen  = today >= earliestApply
-  const daysToWindow = daysUntil(earliestApply)
-
-  return {
-    enrollmentOk,
-    earliestApply,
-    latestApply,
-    recommendedApplyBy,
-    estimatedEADDate,
-    optEndDate,
-    canApplyNow,
-    windowOpen,
-    daysToWindow,
-    prevOPTUsed,
-    eligible: enrollmentOk && !prevOPTUsed,
-  }
-}
-
-// ── STEM OPT Eligibility Calculator ──────────────────────────────
-function calcSTEMEligibility(optEndDate, isStemDegree, employerEVerify, prevExtUsed) {
-  if (!optEndDate) return null
-  const today = new Date(); today.setHours(0,0,0,0)
-
-  // Must apply 90 days before OPT expires
-  const earliestApply     = addDays(optEndDate, -90)
-  const latestApply       = addDays(optEndDate, -1)
-  const EAD_PROCESSING    = 90 // STEM OPT EAD typically faster ~3 months
-  const recommendedApplyBy = addDays(optEndDate, -EAD_PROCESSING)
-  const stemEndDate       = addMonths(optEndDate, 24)
-
-  const canApplyNow  = today >= earliestApply && today <= latestApply
-  const windowOpen   = today >= earliestApply
-  const daysToWindow = daysUntil(earliestApply)
-
-  return {
-    isStemDegree,
-    employerEVerify,
-    prevExtUsed,
-    earliestApply,
-    latestApply,
-    recommendedApplyBy,
-    stemEndDate,
-    canApplyNow,
-    windowOpen,
-    daysToWindow,
-    eligible: isStemDegree && employerEVerify && !prevExtUsed,
-  }
-}
-
-// ── H-1B Lottery Tracker ──────────────────────────────────────────
-const H1B_LOTTERY_YEARS = [2020,2021,2022,2023,2024,2025,2026]
-const CURRENT_YEAR = new Date().getFullYear()
-const LOTTERY_REGISTRATION_MONTH = 2 // March (0-indexed)
-const LOTTERY_START_DATE = new Date(CURRENT_YEAR, LOTTERY_REGISTRATION_MONTH, 1)
-
-function calcH1BStatus({
-  i94Expiry, mastersDegree, capExempt, attempts, i94ExtendedBy
-}) {
-  if (!i94Expiry) return null
-  const today = new Date(); today.setHours(0,0,0,0)
-
-  // H-1B cap year runs Oct 1 → Sep 30
-  // Registration opens in March each year for Oct 1 start
-  // Last eligible lottery year = the year before I-94 expires
-  // (need to be in valid status during registration window)
-  const expiryYear = i94Expiry.getFullYear()
-  const expiryMonth = i94Expiry.getMonth()
-
-  // Can register in March of a year if I-94 is valid through at least Oct 1 of that year
-  let lastEligibleLotteryYear = expiryYear
-  if (expiryMonth < 9) lastEligibleLotteryYear = expiryYear - 1 // before Oct 1
-
-  const futureAttempts = []
-  for (let yr = CURRENT_YEAR; yr <= lastEligibleLotteryYear + 1; yr++) {
-    const regDate    = new Date(yr, 2, 1)   // March 1
-    const startDate  = new Date(yr, 9, 1)   // Oct 1
-    if (startDate > i94Expiry) break
-    if (!attempts.includes(yr)) {
-      futureAttempts.push({ year: yr, regDate, startDate })
+    let status = 'ok'
+    let statusMsg = ''
+    if (!alreadyGraded && daysToApply > 0) {
+      status = 'waiting'
+      statusMsg = `Application window opens in ${daysToApply} days`
+    } else if (daysToDeadline < 0) {
+      status = 'expired'
+      statusMsg = 'OPT application deadline has passed'
+    } else if (daysToDeadline <= 14) {
+      status = 'urgent'
+      statusMsg = `Only ${daysToDeadline} days left to apply!`
+    } else {
+      status = 'eligible'
+      statusMsg = 'You are eligible to apply for OPT'
     }
+
+    return {
+      status, statusMsg,
+      applyFrom, applyBy, ead5months, earliestStart,
+      daysToApply, daysToDeadline, alreadyGraded
+    }
+  }, [gradDate, calculated, degreeLevel])
+
+  const STATUS_COLOR = {
+    waiting:  'var(--text-secondary)',
+    expired:  'var(--danger)',
+    urgent:   'var(--warning)',
+    eligible: 'var(--success)',
+    ok:       'var(--success)',
   }
 
-  const totalAttempted = attempts.length
-  const totalRemaining = futureAttempts.length
-  const nextLottery    = futureAttempts[0] || null
-  const daysToNext     = nextLottery ? daysUntil(nextLottery.regDate) : null
-
-  // Cap-exempt employers: universities, non-profits affiliated with universities,
-  // government research orgs — can file any time, no lottery
-  return {
-    mastersDegree,
-    capExempt,
-    i94Expiry,
-    attempts,
-    totalAttempted,
-    totalRemaining,
-    futureAttempts,
-    nextLottery,
-    daysToNext,
-    lastEligibleLotteryYear,
-    // Masters cap: separate 20k quota on top of 65k regular cap
-    mastersAdvantage: mastersDegree ? 'Two chances per lottery (masters cap + regular cap)' : 'One chance per lottery (regular cap only)',
-  }
-}
-
-// ── Checklist Item ────────────────────────────────────────────────
-function CheckItem({ ok, text, note }) {
   return (
-    <div className={`${styles.checkItem} ${ok ? styles.checkOk : styles.checkNo}`}>
-      <span className={styles.checkIcon}>{ok ? '✓' : '✗'}</span>
-      <div>
-        <span className={styles.checkText}>{text}</span>
-        {note && <span className={styles.checkNote}>{note}</span>}
+    <div className={styles.tabContent}>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Your graduation details</div>
+        <div className={styles.row2}>
+          <div className={styles.field}>
+            <label className={styles.label}>Graduation date</label>
+            <input type="date" className={styles.input}
+              value={gradDate} onChange={e => setGradDate(e.target.value)} />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Degree level</label>
+            <select className={styles.input} value={degreeLevel}
+              onChange={e => setDegreeLevel(e.target.value)}>
+              <option value="bachelors">Bachelor's degree</option>
+              <option value="masters">Master's degree</option>
+              <option value="phd">PhD / Doctorate</option>
+            </select>
+          </div>
+        </div>
+        <button className={styles.calcBtn}
+          onClick={() => setCalculated(true)} disabled={!gradDate}>
+          Check OPT eligibility
+        </button>
       </div>
+
+      {result && (
+        <>
+          <div className={styles.statusCard}>
+            <div className={styles.statusBadge}
+              style={{ color: STATUS_COLOR[result.status], background: `${STATUS_COLOR[result.status]}18` }}>
+              {result.status === 'eligible' ? '✓ Eligible' :
+               result.status === 'expired'  ? '✗ Expired'  :
+               result.status === 'urgent'   ? '⚡ Urgent'   : '⏳ Waiting'}
+            </div>
+            <p className={styles.statusMsg} style={{ color: STATUS_COLOR[result.status] }}>
+              {result.statusMsg}
+            </p>
+          </div>
+
+          <div className={styles.timelineCard}>
+            <div className={styles.timelineTitle}>Key dates</div>
+            {[
+              { label: 'Application window opens', date: result.applyFrom,
+                note: '90 days before graduation', urgent: result.daysToApply > 0 && result.daysToApply < 14 },
+              { label: 'Application deadline',     date: result.applyBy,
+                note: '60 days after graduation', urgent: result.daysToDeadline > 0 && result.daysToDeadline < 30 },
+              { label: 'Estimated EAD receipt',    date: result.ead5months,
+                note: 'Apply early — USCIS takes ~5 months' },
+              { label: 'Earliest OPT start',       date: result.earliestStart,
+                note: 'Day after graduation or today (whichever is later)' },
+            ].map((item, i) => (
+              <div key={i} className={`${styles.timelineRow} ${item.urgent ? styles.urgent : ''}`}>
+                <div>
+                  <div className={styles.timelineLabel}>{item.label}</div>
+                  <div className={styles.timelineNote}>{item.note}</div>
+                </div>
+                <div className={styles.timelineDate}
+                  style={{ color: item.urgent ? 'var(--warning)' : 'var(--text-primary)' }}>
+                  {fmtDate(item.date)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.requirementsCard}>
+            <div className={styles.reqTitle}>OPT requirements checklist</div>
+            {[
+              { text: 'Full-time F-1 student for at least one academic year',    ok: true },
+              { text: 'Employment must be directly related to your major',        ok: true },
+              { text: 'Apply on SEVP portal — DSO recommendation required',       ok: true },
+              { text: 'Form I-765 (Application for Employment Authorization)',    ok: true },
+              { text: 'OPT valid for 12 months — 90-day unemployment limit',      ok: true },
+              { text: 'Can be used before OR after graduation (pre/post-comp)',   ok: true },
+            ].map((r, i) => (
+              <div key={i} className={styles.reqRow}>
+                <span className={styles.reqCheck}>✓</span>
+                <span>{r.text}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
-// ── Countdown chip ────────────────────────────────────────────────
-function Countdown({ date, label }) {
-  if (!date) return null
-  const { label: l, past } = daysUntilLabel(date)
+// ── STEM OPT Eligibility ──────────────────────────────────────────
+function STEMTab() {
+  const [optEnd,      setOptEnd]      = useState('')
+  const [hasStemDeg,  setHasStemDeg]  = useState(null)
+  const [eVerify,     setEVerify]     = useState(null)
+  const [calculated,  setCalculated]  = useState(false)
+
+  const result = useMemo(() => {
+    if (!optEnd || !calculated) return null
+    const optEndDate = new Date(optEnd)
+    const applyBy    = addDays(optEndDate, -90)
+    const stemStart  = addDays(optEndDate, 1)   // STEM OPT starts day AFTER OPT ends
+    const stemEnd    = addDays(addMonths(stemStart, 24), -1)  // EAD expiry = day before 2yr anniversary
+    const daysLeft   = daysFromNow(applyBy)
+    const today      = new Date(); today.setHours(0,0,0,0)
+
+    const eligible   = hasStemDeg === true && eVerify === true
+    const maybeElig  = hasStemDeg === null || eVerify === null
+
+    return {
+      eligible, maybeElig,
+      applyBy, stemStart, stemEnd, daysLeft,
+      optEndDate,
+      deadlinePassed: applyBy < today
+    }
+  }, [optEnd, hasStemDeg, eVerify, calculated])
+
   return (
-    <div className={styles.countdownChip}>
-      <span className={styles.countdownLabel}>{label}</span>
-      <span className={styles.countdownDate}>{fmtDate(date)}</span>
-      <span className={`${styles.countdownBadge} ${past ? styles.past : ''}`}>{l}</span>
+    <div className={styles.tabContent}>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Your OPT details</div>
+        <div className={styles.field}>
+          <label className={styles.label}>OPT end date (EAD expiry)</label>
+          <input type="date" className={styles.input}
+            value={optEnd} onChange={e => setOptEnd(e.target.value)} />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Do you have a STEM-designated degree?</label>
+          <div className={styles.boolBtns}>
+            <button className={`${styles.boolBtn} ${hasStemDeg === true ? styles.boolActive : ''}`}
+              onClick={() => setHasStemDeg(true)}>✓ Yes</button>
+            <button className={`${styles.boolBtn} ${hasStemDeg === false ? styles.boolNo : ''}`}
+              onClick={() => setHasStemDeg(false)}>✗ No</button>
+          </div>
+          <p className={styles.fieldHint}>
+            Check your CIP code at <a href="https://studyinthestates.dhs.gov/stem-opt-hub" target="_blank" rel="noreferrer"
+              style={{color:'var(--accent)'}}>studyinthestates.dhs.gov</a>
+          </p>
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Is your employer E-Verify registered?</label>
+          <div className={styles.boolBtns}>
+            <button className={`${styles.boolBtn} ${eVerify === true ? styles.boolActive : ''}`}
+              onClick={() => setEVerify(true)}>✓ Yes</button>
+            <button className={`${styles.boolBtn} ${eVerify === false ? styles.boolNo : ''}`}
+              onClick={() => setEVerify(false)}>✗ No / Unknown</button>
+          </div>
+          <p className={styles.fieldHint}>
+            Verify at <a href="https://www.e-verify.gov/employers/e-verify-employer-search" target="_blank" rel="noreferrer"
+              style={{color:'var(--accent)'}}>e-verify.gov</a>
+          </p>
+        </div>
+
+        <button className={styles.calcBtn}
+          onClick={() => setCalculated(true)} disabled={!optEnd}>
+          Check STEM OPT eligibility
+        </button>
+      </div>
+
+      {result && (
+        <>
+          {eVerify === false && (
+            <div className={styles.alertCard} style={{borderColor:'var(--danger)'}}>
+              ✗ <strong>Employer not E-Verify registered</strong> — STEM OPT requires your employer to be
+              enrolled in E-Verify. Ask your HR team to register before you apply.
+            </div>
+          )}
+          {hasStemDeg === false && (
+            <div className={styles.alertCard} style={{borderColor:'var(--danger)'}}>
+              ✗ <strong>Non-STEM degree</strong> — Only DHS-designated STEM degrees qualify.
+              Check the STEM list with your DSO.
+            </div>
+          )}
+
+          {result.eligible && (
+            <div className={styles.statusCard}>
+              <div className={styles.statusBadge} style={{color:'var(--success)',background:'var(--success-soft)'}}>
+                ✓ Eligible for STEM OPT
+              </div>
+              <p className={styles.statusMsg} style={{color:'var(--success)'}}>
+                You qualify for the 24-month STEM OPT extension
+              </p>
+            </div>
+          )}
+
+          <div className={styles.timelineCard}>
+            <div className={styles.timelineTitle}>Key dates</div>
+            {[
+              { label: 'Apply by (90 days before OPT ends)', date: result.applyBy,
+                urgent: result.daysLeft > 0 && result.daysLeft < 60,
+                note: result.daysLeft > 0 ? `${result.daysLeft} days away` : 'Deadline passed' },
+              { label: 'OPT end date',      date: result.optEndDate, note: 'Your current EAD expiry' },
+              { label: 'STEM OPT start',   date: result.stemStart,  note: 'Day after OPT ends — apply before this' },
+              { label: 'STEM OPT end',     date: result.stemEnd,    note: '24 months after STEM OPT starts' },
+            ].map((item, i) => (
+              <div key={i} className={`${styles.timelineRow} ${item.urgent ? styles.urgent : ''}`}>
+                <div>
+                  <div className={styles.timelineLabel}>{item.label}</div>
+                  <div className={styles.timelineNote}>{item.note}</div>
+                </div>
+                <div className={styles.timelineDate}
+                  style={{ color: item.urgent ? 'var(--warning)' : 'var(--text-primary)' }}>
+                  {fmtDate(item.date)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.requirementsCard}>
+            <div className={styles.reqTitle}>STEM OPT requirements checklist</div>
+            {[
+              { text: 'Valid F-1 OPT status when you apply',                            ok: true },
+              { text: 'STEM-designated degree (check DHS CIP code list)',               ok: hasStemDeg === true },
+              { text: 'E-Verify registered employer (check e-verify.gov)',              ok: eVerify === true },
+              { text: 'Form I-983 Training Plan — must be signed by employer',          ok: true },
+              { text: 'Apply within 90 days of OPT end date',                          ok: !result.deadlinePassed },
+              { text: 'DSO recommendation letter required',                             ok: true },
+              { text: '150-day cumulative unemployment limit (includes OPT days)',      ok: true },
+            ].map((r, i) => (
+              <div key={i} className={`${styles.reqRow} ${!r.ok ? styles.reqFail : ''}`}>
+                <span className={styles.reqCheck} style={{ color: r.ok ? 'var(--success)' : 'var(--danger)' }}>
+                  {r.ok ? '✓' : '✗'}
+                </span>
+                <span style={{ color: r.ok ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+                  {r.text}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────
+// ── CPT Eligibility ───────────────────────────────────────────────
+function CPTTab() {
+  const [enrolledMonths, setEnrolledMonths] = useState('')
+  const [calculated, setCalculated]         = useState(false)
+
+  const result = useMemo(() => {
+    if (!calculated) return null
+    const months = parseInt(enrolledMonths) || 0
+    return {
+      eligible: months >= 9,
+      months,
+      ptRisk: months >= 12,
+    }
+  }, [enrolledMonths, calculated])
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Your enrollment details</div>
+        <div className={styles.field}>
+          <label className={styles.label}>Full-time enrollment duration (months)</label>
+          <input type="number" min="0" max="120" className={styles.input}
+            placeholder="e.g. 12" value={enrolledMonths}
+            onChange={e => setEnrolledMonths(e.target.value)} />
+          <p className={styles.fieldHint}>Must be enrolled full-time for at least 9 months to qualify</p>
+        </div>
+        <button className={styles.calcBtn}
+          onClick={() => setCalculated(true)} disabled={!enrolledMonths}>
+          Check CPT eligibility
+        </button>
+      </div>
+
+      {result && (
+        <>
+          <div className={styles.statusCard}>
+            <div className={styles.statusBadge}
+              style={{ color: result.eligible ? 'var(--success)' : 'var(--danger)',
+                       background: result.eligible ? 'var(--success-soft)' : 'var(--danger-soft)' }}>
+              {result.eligible ? '✓ Eligible for CPT' : '✗ Not yet eligible'}
+            </div>
+            <p className={styles.statusMsg}
+              style={{ color: result.eligible ? 'var(--success)' : 'var(--danger)' }}>
+              {result.eligible
+                ? `${result.months} months enrolled — you qualify for CPT`
+                : `${result.months} months enrolled — need at least 9 months`}
+            </p>
+          </div>
+
+          {result.ptRisk && (
+            <div className={styles.alertCard} style={{ borderColor: 'var(--warning)' }}>
+              ⚠ <strong>12+ months full-time CPT makes you ineligible for OPT.</strong> Track your
+              CPT duration carefully with your DSO.
+            </div>
+          )}
+
+          <div className={styles.requirementsCard}>
+            <div className={styles.reqTitle}>CPT requirements checklist</div>
+            {[
+              { text: `Full-time enrollment ≥ 9 months (you have ${result.months})`, ok: result.months >= 9 },
+              { text: 'Work must be integral part of established curriculum',          ok: true },
+              { text: 'DSO authorization required each semester (listed on I-20)',    ok: true },
+              { text: 'No unemployment day limit — authorization is semester-based',  ok: true },
+              { text: '12+ months full-time CPT = OPT ineligible (track carefully)',  ok: !result.ptRisk },
+            ].map((r, i) => (
+              <div key={i} className={`${styles.reqRow} ${!r.ok ? styles.reqFail : ''}`}>
+                <span className={styles.reqCheck}
+                  style={{ color: r.ok ? 'var(--success)' : 'var(--warning)' }}>
+                  {r.ok ? '✓' : '⚠'}
+                </span>
+                <span>{r.text}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Main ──────────────────────────────────────────────────────────
 export default function EligibilityPage() {
   const [activeTab, setActiveTab] = useState('opt')
-
-  // OPT state
-  const [gradDate,       setGradDate]       = useState('')
-  const [enrolledMonths, setEnrolledMonths] = useState('12')
-  const [prevOPTUsed,    setPrevOPTUsed]    = useState(false)
-  const [optCalculated,  setOptCalculated]  = useState(false)
-
-  // STEM state
-  const [optEnd,         setOptEnd]         = useState('')
-  const [stemDegree,     setStemDegree]      = useState('')
-  const [eVerify,        setEVerify]         = useState(false)
-  const [prevStemUsed,   setPrevStemUsed]    = useState(false)
-  const [stemCalculated, setStemCalculated]  = useState(false)
-
-  // H-1B state
-  const [i94Expiry,      setI94Expiry]      = useState('')
-  const [i94Extended,    setI94Extended]    = useState('')
-  const [mastersDeg,     setMastersDeg]     = useState(false)
-  const [capExempt,      setCapExempt]      = useState(false)
-  const [attemptYears,   setAttemptYears]   = useState([])
-  const [h1bCalculated,  setH1bCalculated]  = useState(false)
-
-  const optResult  = useMemo(() => optCalculated  ? calcOPTEligibility(parseDate(gradDate), parseInt(enrolledMonths)||0, prevOPTUsed) : null,
-    [optCalculated, gradDate, enrolledMonths, prevOPTUsed])
-
-  const stemResult = useMemo(() => stemCalculated ? calcSTEMEligibility(parseDate(optEnd), !!stemDegree, eVerify, prevStemUsed) : null,
-    [stemCalculated, optEnd, stemDegree, eVerify, prevStemUsed])
-
-  const h1bResult  = useMemo(() => h1bCalculated  ? calcH1BStatus({
-    i94Expiry: parseDate(i94Extended || i94Expiry),
-    mastersDegree: mastersDeg, capExempt, attempts: attemptYears
-  }) : null, [h1bCalculated, i94Expiry, i94Extended, mastersDeg, capExempt, attemptYears])
-
-  function toggleAttempt(yr) {
-    setAttemptYears(prev => prev.includes(yr) ? prev.filter(y => y !== yr) : [...prev, yr])
-    setH1bCalculated(false)
-  }
-
-  const TABS = [
-    { id: 'opt',  label: 'OPT Eligibility'      },
-    { id: 'stem', label: 'STEM OPT Eligibility'  },
-  
-  ]
 
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
         <h1>Eligibility Planner</h1>
-        <p className={styles.subtitle}>Check when you can apply, track deadlines, and plan your H-1B lottery attempts</p>
+        <p className={styles.subtitle}>
+          Check your OPT, STEM OPT, and CPT eligibility with key dates and deadlines
+        </p>
       </div>
 
-      {/* Sub-tabs */}
-      <div className={styles.subTabs}>
+      <div className={styles.tabs}>
         {TABS.map(t => (
-          <button key={t.id}
-            className={`${styles.subTab} ${activeTab === t.id ? styles.subTabActive : ''}`}
-            onClick={() => setActiveTab(t.id)}>
+          <button
+            key={t.id}
+            className={`${styles.tab} ${activeTab === t.id ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab(t.id)}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── OPT ELIGIBILITY ── */}
-      {activeTab === 'opt' && (
-        <div className={styles.grid}>
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Your details</div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Program end / graduation date</label>
-              <input type="date" className={styles.input} value={gradDate}
-                onChange={e => { setGradDate(e.target.value); setOptCalculated(false) }} />
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Full-time enrollment duration (months)</label>
-              <input type="number" min="0" max="120" className={styles.input}
-                value={enrolledMonths}
-                onChange={e => { setEnrolledMonths(e.target.value); setOptCalculated(false) }} />
-              <p className={styles.hint}>Must be at least 9 months to qualify for OPT</p>
-            </div>
-
-            <label className={styles.toggle}>
-              <input type="checkbox" checked={prevOPTUsed}
-                onChange={e => { setPrevOPTUsed(e.target.checked); setOptCalculated(false) }} />
-              <span>I have already used OPT at this degree level</span>
-            </label>
-
-            <button className={styles.calcBtn} onClick={() => setOptCalculated(true)}>
-              Check OPT eligibility
-            </button>
-          </div>
-
-          <div>
-            {!optResult ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>🎓</div>
-                <p>Enter your graduation date to see your OPT application window.</p>
-              </div>
-            ) : (
-              <div className={styles.results}>
-                {/* Eligibility verdict */}
-                <div className={`${styles.verdict} ${optResult.eligible ? styles.verdictOk : styles.verdictNo}`}>
-                  <span className={styles.verdictIcon}>{optResult.eligible ? '✓' : '✗'}</span>
-                  <div>
-                    <div className={styles.verdictTitle}>
-                      {optResult.eligible ? 'Eligible for OPT' : 'Not currently eligible'}
-                    </div>
-                    <div className={styles.verdictSub}>
-                      {!optResult.enrollmentOk && 'Requires at least 9 months full-time enrollment. '}
-                      {optResult.prevOPTUsed && 'OPT already used at this degree level. '}
-                      {optResult.eligible && 'You meet the basic eligibility requirements.'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Checklist */}
-                <div className={styles.section}>
-                  <div className={styles.sectionTitle}>Requirements checklist</div>
-                  <CheckItem ok={optResult.enrollmentOk}
-                    text="Full-time enrollment ≥ 9 months"
-                    note={`You entered ${enrolledMonths} months`} />
-                  <CheckItem ok={!optResult.prevOPTUsed}
-                    text="OPT not previously used at this degree level"
-                    note="One OPT per degree level (bachelor's, master's, PhD)" />
-                  <CheckItem ok={true}
-                    text="Valid F-1 status"
-                    note="Verify with your DSO" />
-                  <CheckItem ok={true}
-                    text="SEVIS record in good standing"
-                    note="No violations or unauthorized employment" />
-                </div>
-
-                {/* Timeline */}
-                {optResult.eligible && (
-                  <div className={styles.section}>
-                    <div className={styles.sectionTitle}>Application timeline</div>
-                    <Countdown date={optResult.recommendedApplyBy} label="⭐ Recommended — apply by (for on-time EAD)" />
-                    <Countdown date={optResult.earliestApply}      label="Earliest you can apply" />
-                    <Countdown date={parseDate(gradDate)}          label="Graduation / program end" />
-                    <Countdown date={optResult.latestApply}        label="Latest you can apply" />
-                    <Countdown date={optResult.estimatedEADDate}   label="Estimated EAD receipt (~4 months processing)" />
-                    <Countdown date={optResult.optEndDate}         label="OPT expires (~12 months from graduation)" />
-
-                    <div className={styles.infoBox}>
-                      <strong>⏱ EAD processing note:</strong> USCIS is currently processing OPT EADs in approximately 3–5 months.
-                      Apply as close to 90 days before graduation as possible to avoid gaps.
-                      Premium processing is not available for OPT.
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── STEM OPT ELIGIBILITY ── */}
-      {activeTab === 'stem' && (
-        <div className={styles.grid}>
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Your details</div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Current OPT end date (EAD expiry)</label>
-              <input type="date" className={styles.input} value={optEnd}
-                onChange={e => { setOptEnd(e.target.value); setStemCalculated(false) }} />
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Your degree field</label>
-              <select className={styles.select} value={stemDegree}
-                onChange={e => { setStemDegree(e.target.value); setStemCalculated(false) }}>
-                <option value="">Select your degree field…</option>
-                {STEM_DEGREES.map(d => <option key={d} value={d}>{d}</option>)}
-                <option value="non-stem">Non-STEM degree</option>
-              </select>
-              <p className={styles.hint}>Must be a DHS-designated STEM field (CIP code list)</p>
-            </div>
-
-            <label className={styles.toggle}>
-              <input type="checkbox" checked={eVerify}
-                onChange={e => { setEVerify(e.target.checked); setStemCalculated(false) }} />
-              <span>My employer is E-Verify registered</span>
-            </label>
-            <p className={styles.hint} style={{marginTop: -8, marginLeft: 24}}>
-              Check at <a href="https://www.e-verify.gov/employers/employer-search" target="_blank" rel="noreferrer" style={{color:'var(--accent)'}}>e-verify.gov</a>
-            </p>
-
-            <label className={styles.toggle}>
-              <input type="checkbox" checked={prevStemUsed}
-                onChange={e => { setPrevStemUsed(e.target.checked); setStemCalculated(false) }} />
-              <span>I have already used a STEM OPT extension</span>
-            </label>
-            <p className={styles.hint} style={{marginTop: -8, marginLeft: 24}}>
-              Only one 24-month STEM extension is allowed per degree level
-            </p>
-
-            <button className={styles.calcBtn} onClick={() => setStemCalculated(true)}>
-              Check STEM OPT eligibility
-            </button>
-          </div>
-
-          <div>
-            {!stemResult ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>🔬</div>
-                <p>Enter your OPT end date and degree details to check STEM OPT eligibility.</p>
-              </div>
-            ) : (
-              <div className={styles.results}>
-                <div className={`${styles.verdict} ${stemResult.eligible ? styles.verdictOk : styles.verdictNo}`}>
-                  <span className={styles.verdictIcon}>{stemResult.eligible ? '✓' : '✗'}</span>
-                  <div>
-                    <div className={styles.verdictTitle}>
-                      {stemResult.eligible ? 'Eligible for STEM OPT Extension' : 'Not currently eligible'}
-                    </div>
-                    <div className={styles.verdictSub}>
-                      {!stemResult.isStemDegree && 'Degree must be a DHS-designated STEM field. '}
-                      {!stemResult.employerEVerify && 'Employer must be E-Verify registered. '}
-                      {stemResult.prevExtUsed && 'STEM extension already used at this degree level. '}
-                      {stemResult.eligible && '24-month extension available.'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionTitle}>Requirements checklist</div>
-                  <CheckItem ok={stemResult.isStemDegree && stemDegree !== 'non-stem'}
-                    text="DHS-designated STEM degree"
-                    note={stemDegree || 'Select your degree field'} />
-                  <CheckItem ok={stemResult.employerEVerify}
-                    text="Employer is E-Verify registered"
-                    note="Required — verify at e-verify.gov" />
-                  <CheckItem ok={!stemResult.prevExtUsed}
-                    text="STEM extension not previously used at this level"
-                    note="One 24-month extension per degree level" />
-                  <CheckItem ok={true}
-                    text="Valid OPT EAD and F-1 status"
-                    note="Must be in valid OPT status when applying" />
-                  <CheckItem ok={true}
-                    text="Training Plan (Form I-983) completed"
-                    note="Required — employer must sign and submit to DSO" />
-                </div>
-
-                {stemResult.eligible && (
-                  <div className={styles.section}>
-                    <div className={styles.sectionTitle}>Application timeline</div>
-                    <Countdown date={stemResult.recommendedApplyBy} label="⭐ Recommended — apply by (avoid OPT gap)" />
-                    <Countdown date={stemResult.earliestApply}      label="Earliest you can apply (90 days before OPT ends)" />
-                    <Countdown date={parseDate(optEnd)}             label="Current OPT expires" />
-                    <Countdown date={stemResult.stemEndDate}        label="STEM OPT expires (+24 months)" />
-
-                    <div className={styles.infoBox}>
-                      <strong>⚠ Important:</strong> Apply at least 90 days before your OPT expires.
-                      If your STEM EAD is still pending when OPT expires, your 180-day cap-gap may apply.
-                      Work with your DSO and file early.
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── H-1B LOTTERY TRACKER ── */}
-      {activeTab === 'h1b' && (
-        <div className={styles.grid}>
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Your details</div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Current I-94 / status expiry</label>
-              <input type="date" className={styles.input} value={i94Expiry}
-                onChange={e => { setI94Expiry(e.target.value); setH1bCalculated(false) }} />
-              <p className={styles.hint}>Found at i94.cbp.dhs.gov or on your visa stamp / approval notice</p>
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Extended status expiry (if renewed)</label>
-              <input type="date" className={styles.input} value={i94Extended}
-                onChange={e => { setI94Extended(e.target.value); setH1bCalculated(false) }} />
-              <p className={styles.hint}>Leave blank if not extended yet — enter your latest authorized stay</p>
-            </div>
-
-            <label className={styles.toggle}>
-              <input type="checkbox" checked={mastersDeg}
-                onChange={e => { setMastersDeg(e.target.checked); setH1bCalculated(false) }} />
-              <span>I have a US Master's degree or higher</span>
-            </label>
-            <p className={styles.hint} style={{marginTop: -8, marginLeft: 24}}>
-              Qualifies for masters cap (20k extra slots) — two lottery entries per year
-            </p>
-
-            <label className={styles.toggle}>
-              <input type="checkbox" checked={capExempt}
-                onChange={e => { setCapExempt(e.target.checked); setH1bCalculated(false) }} />
-              <span>My employer is cap-exempt</span>
-            </label>
-            <p className={styles.hint} style={{marginTop: -8, marginLeft: 24}}>
-              Universities, non-profits affiliated with universities, government research orgs
-            </p>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Years I entered the H-1B lottery</label>
-              <div className={styles.yearGrid}>
-                {H1B_LOTTERY_YEARS.map(yr => (
-                  <button key={yr}
-                    className={`${styles.yearBtn} ${attemptYears.includes(yr) ? styles.yearSelected : ''}`}
-                    onClick={() => toggleAttempt(yr)}>
-                    {yr}
-                    {attemptYears.includes(yr) && <span className={styles.yearCheck}>✓</span>}
-                  </button>
-                ))}
-              </div>
-              <p className={styles.hint}>Tap the years you registered — even if you didn't win</p>
-            </div>
-
-            <button className={styles.calcBtn} onClick={() => setH1bCalculated(true)}>
-              Calculate remaining attempts
-            </button>
-          </div>
-
-          <div>
-            {!h1bResult ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>🎰</div>
-                <p>Enter your I-94 expiry and lottery history to see your remaining H-1B chances.</p>
-              </div>
-            ) : capExempt ? (
-              <div className={`${styles.verdict} ${styles.verdictOk}`} style={{marginBottom: 0}}>
-                <span className={styles.verdictIcon}>⭐</span>
-                <div>
-                  <div className={styles.verdictTitle}>Cap-exempt — no lottery needed!</div>
-                  <div className={styles.verdictSub}>
-                    Your employer can file an H-1B petition at any time without going through the annual lottery.
-                    Work with your employer's immigration attorney to file directly.
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.results}>
-                {/* Summary cards */}
-                <div className={styles.h1bMetrics}>
-                  <div className={styles.h1bMetric}>
-                    <div className={styles.h1bMetricLabel}>Attempts used</div>
-                    <div className={styles.h1bMetricVal} style={{color:'var(--text-secondary)'}}>
-                      {h1bResult.totalAttempted}
-                    </div>
-                  </div>
-                  <div className={styles.h1bMetric}>
-                    <div className={styles.h1bMetricLabel}>Remaining attempts</div>
-                    <div className={styles.h1bMetricVal}
-                      style={{color: h1bResult.totalRemaining === 0 ? 'var(--danger)' : h1bResult.totalRemaining <= 2 ? 'var(--warning)' : 'var(--success)'}}>
-                      {h1bResult.totalRemaining}
-                    </div>
-                  </div>
-                  <div className={styles.h1bMetric}>
-                    <div className={styles.h1bMetricLabel}>Last eligible year</div>
-                    <div className={styles.h1bMetricVal} style={{color:'var(--text-primary)'}}>
-                      {h1bResult.lastEligibleLotteryYear}
-                    </div>
-                  </div>
-                  <div className={styles.h1bMetric}>
-                    <div className={styles.h1bMetricLabel}>Lottery entries/year</div>
-                    <div className={styles.h1bMetricVal} style={{color: mastersDeg ? 'var(--success)' : 'var(--text-secondary)'}}>
-                      {mastersDeg ? '2x' : '1x'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Masters advantage */}
-                <div className={styles.infoBox} style={{marginBottom:'1rem'}}>
-                  🎓 {h1bResult.mastersAdvantage}
-                  {mastersDeg && ' — your US master\'s degree gives you an extra entry in the masters cap pool (20k additional slots).'}
-                </div>
-
-                {/* I-94 expiry */}
-                <div className={styles.section}>
-                  <div className={styles.sectionTitle}>Status validity</div>
-                  <Countdown
-                    date={parseDate(i94Extended || i94Expiry)}
-                    label="Current authorized stay expires" />
-                  {h1bResult.totalRemaining === 0 && (
-                    <div className={styles.warningBox}>
-                      ⚠ No remaining lottery attempts before your status expires.
-                      Consider extending your F-1/OPT, changing employers (cap-exempt),
-                      or exploring other visa options (O-1, EB-2 NIW).
-                    </div>
-                  )}
-                </div>
-
-                {/* Future attempts timeline */}
-                {h1bResult.futureAttempts.length > 0 && (
-                  <div className={styles.section}>
-                    <div className={styles.sectionTitle}>Upcoming lottery windows</div>
-                    {h1bResult.futureAttempts.map((a, i) => {
-                      const { label: dl } = daysUntilLabel(a.regDate)
-                      const isNext = i === 0
-                      return (
-                        <div key={a.year} className={`${styles.lotteryRow} ${isNext ? styles.lotteryNext : ''}`}>
-                          <div className={styles.lotteryLeft}>
-                            <span className={styles.lotteryYear}>{a.year}</span>
-                            <div>
-                              <div className={styles.lotteryLabel}>
-                                {isNext ? '⭐ Next lottery' : `${a.year} lottery`}
-                              </div>
-                              <div className={styles.lotteryDates}>
-                                Registration opens {fmtDate(a.regDate)} · H-1B starts {fmtDate(a.startDate)}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`${styles.deadlineBadge2} ${isNext ? styles.badgeNext : ''}`}>
-                            {dl}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Past attempts */}
-                {h1bResult.attempts.length > 0 && (
-                  <div className={styles.section}>
-                    <div className={styles.sectionTitle}>Past lottery attempts</div>
-                    <div className={styles.yearGrid} style={{marginTop: 8}}>
-                      {h1bResult.attempts.sort().map(yr => (
-                        <div key={yr} className={styles.pastAttempt}>{yr} ✓</div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Odds context */}
-                <div className={styles.infoBox}>
-                  📊 <strong>Lottery odds context:</strong> Regular cap selection rate has been ~20–30% in recent years.
-                  Masters cap holders get two draws, boosting combined odds to ~35–45%.
-                  Each year you don't win, consider cap-exempt opportunities to bridge the gap.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {activeTab === 'opt'  && <OPTTab />}
+      {activeTab === 'stem' && <STEMTab />}
+      {activeTab === 'cpt'  && <CPTTab />}
     </div>
   )
 }

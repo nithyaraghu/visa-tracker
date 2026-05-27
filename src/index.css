@@ -71,3 +71,45 @@ input, select, textarea { font-family: var(--font-body); }
 ::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 3px; }
 
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+
+/* ── Mobile responsive globals ── */
+@media (max-width: 768px) {
+  html { font-size: 14px; }
+
+  /* All pages max-width */
+  .page, [class*="page"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Tracker grid — single column on mobile */
+  [class*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Onboarding card */
+  [class*="card"] {
+    padding: 1.5rem 1.25rem !important;
+  }
+
+  /* Visa cards grid */
+  [class*="visaGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Row2 grids */
+  [class*="row2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Period rows */
+  [class*="periodRow"] {
+    grid-template-columns: 1fr 1fr auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  [class*="periodRow"] {
+    grid-template-columns: 1fr !important;
+  }
+}

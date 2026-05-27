@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
 import styles from './TrackerPage.module.css'
+import { supabase } from '../auth/supabase.js'
 
 const STATUS_META = {
   ok:       { color: 'var(--success)', bg: 'var(--success-soft)', label: 'Within limits'    },
@@ -161,14 +162,9 @@ export default function TrackerPage({ initialData }) {
   async function handleSave() {
     setCalculated(true)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      )
-      const { data: { session } } = await sb.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      await sb.from('user_visa_data').update({
+      await supabase.from('user_visa_data').update({
         visa_type:   visaType,
         auth_start:  authStart || null,
         auth_end:    authEnd   || null,

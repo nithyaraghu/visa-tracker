@@ -1,5 +1,5 @@
 // src/pages/JourneyPage.jsx
-// Unified visa journey dashboard — shows full OPT → STEM → H-1B timeline
+// Unified visa journey dashboard — shows full OPT → STEM OPT timeline
 import { useState, useMemo } from 'react'
 import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
 import styles from './JourneyPage.module.css'
@@ -137,8 +137,8 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
 
   // Eligibility from OPT data
   const optEnd    = optData?.auth_end ? parseLocalDate(optData.auth_end) : null
-  const stemStart = optEnd ? new Date(optEnd) : null
-  const stemEnd   = stemStart ? addMonths(stemStart, 24) : null
+  const stemStart = optEnd ? addDays(optEnd, 1) : null  // STEM starts day AFTER OPT ends
+  const stemEnd   = stemStart ? addDays(addMonths(stemStart, 24), -1) : null  // EAD expiry = day before 2yr anniversary
   const applyBy   = optEnd ? addDays(optEnd, -90) : null
   const daysToApply = applyBy ? daysFromNow(applyBy) : null
 
@@ -161,7 +161,7 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
             <div className={styles.stageTitle}>
               F-1 STEM OPT
               <span className={styles.stagePeriod}>
-                {stemStart ? ` ${fmtDate(stemStart)} → ${fmtDate(stemEnd)}` : ' · 24-month extension'}
+                {stemStart ? ` ${fmtDate(stemStart)} → ${fmtDate(stemEnd)}` : ' · 24-month extension (starts day after OPT ends)'}
               </span>
             </div>
             <div className={styles.stageSummary} style={{ color: isFuture ? 'var(--text-muted)' : color }}>
@@ -251,106 +251,6 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
   )
 }
 
-// ── H-1B stage ────────────────────────────────────────────────────
-function H1BStage({ stemData, optData, hasMasters, capExempt, isFuture, onExpand, expanded }) {
-  const today = new Date(); today.setHours(0,0,0,0)
-  const CURRENT_YEAR = today.getFullYear()
-
-  // Determine last eligible lottery year based on STEM OPT end
-  const stemEnd = stemData?.auth_end
-    ? parseLocalDate(stemData.auth_end)
-    : optData?.auth_end
-    ? addMonths(parseLocalDate(optData.auth_end), 24)
-    : null
-
-  const futureWindows = []
-  for (let yr = CURRENT_YEAR; yr <= (stemEnd ? stemEnd.getFullYear() + 1 : CURRENT_YEAR + 3); yr++) {
-    const regDate   = new Date(yr, 2, 1)  // March 1
-    const startDate = new Date(yr, 9, 1)  // Oct 1
-    if (stemEnd && startDate > stemEnd) break
-    if (regDate >= today) {
-      futureWindows.push({ year: yr, regDate, startDate, daysUntil: daysFromNow(regDate) })
-    }
-  }
-
-  const nextLottery = futureWindows[0]
-
-  return (
-    <div className={`${styles.stage} ${isFuture ? styles.stageFuture : ''}`}>
-      <div className={styles.stageHeader} onClick={onExpand}>
-        <div className={styles.stageLeft}>
-          <div className={styles.stageDot} style={{ background: 'transparent', borderColor: 'var(--border-md)' }}>◎</div>
-          <div>
-            <div className={styles.stageTitle}>H-1B Lottery</div>
-            <div className={styles.stageSummary} style={{ color: 'var(--text-muted)' }}>
-              {nextLottery
-                ? `Next lottery: March ${nextLottery.year} · ${nextLottery.daysUntil} days away`
-                : 'Plan your H-1B strategy'}
-            </div>
-          </div>
-        </div>
-        <div className={styles.stageRight}>
-          <span className={styles.stageBadge} style={{ color: 'var(--accent)', background: 'var(--accent-glow)' }}>
-            {capExempt ? 'Cap-exempt' : 'Plan ahead'}
-          </span>
-          <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className={styles.stageBody}>
-          {capExempt ? (
-            <div className={styles.actionBox} style={{ borderColor: 'var(--success)' }}>
-              <div className={styles.actionIcon}>⭐</div>
-              <div>
-                <div className={styles.actionTitle}>Cap-exempt — no lottery needed!</div>
-                <div className={styles.actionSub}>Your employer can file anytime. Work with immigration attorney.</div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className={styles.detailSection}>
-                <div className={styles.detailTitle}>Upcoming lottery windows</div>
-                {futureWindows.slice(0, 3).map(w => (
-                  <div key={w.year} className={styles.lotteryRow}>
-                    <div>
-                      <div className={styles.lotteryYear}>{w.year} Lottery</div>
-                      <div className={styles.lotterySub}>
-                        Registration: {fmtDate(w.regDate)} · H-1B starts {fmtDate(w.startDate)}
-                      </div>
-                    </div>
-                    <span className={styles.gapBadge} style={{ color: 'var(--accent)', background: 'var(--accent-glow)' }}>
-                      in {w.daysUntil} days
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className={styles.infoBox}>
-                {hasMasters
-                  ? '🎓 US Masters degree: 2 lottery entries per year (regular cap + 20k masters pool) — ~35–45% combined odds'
-                  : '📊 Regular cap: ~20–30% selection odds. A US Masters degree gives you 2 entries per year.'}
-              </div>
-
-              <div className={styles.detailSection}>
-                <div className={styles.detailTitle}>Key facts</div>
-                {[
-                  'Registration opens March each year (~$215 fee)',
-                  'H-1B employment starts October 1',
-                  'Cap-exempt employers (universities, non-profits) can file anytime',
-                  'H-1B portability: can change jobs after 180 days',
-                ].map((f, i) => (
-                  <div key={i} className={styles.factRow}>● {f}</div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── CPT stage ────────────────────────────────────────────────────
 function CPTStage({ data, isActive, onExpand, expanded }) {
   const months = data?.enrolled_months || 0
@@ -360,18 +260,24 @@ function CPTStage({ data, isActive, onExpand, expanded }) {
     <div className={`${styles.stage} ${isActive ? styles.stageActive : ''}`}>
       <div className={styles.stageHeader} onClick={onExpand}>
         <div className={styles.stageLeft}>
-          <div className={styles.stageDot} style={{ background: isActive ? 'var(--success)' : 'var(--surface-3)', borderColor: isActive ? 'var(--success)' : 'var(--border-md)' }}>
+          <div className={styles.stageDot} style={{
+            background: isActive ? 'var(--success)' : 'var(--surface-3)',
+            borderColor: isActive ? 'var(--success)' : 'var(--border-md)'
+          }}>
             {isActive ? '●' : '○'}
           </div>
           <div>
             <div className={styles.stageTitle}>F-1 CPT <span className={styles.stagePeriod}>Curricular Practical Training</span></div>
             <div className={styles.stageSummary} style={{ color: eligible ? 'var(--success)' : 'var(--warning)' }}>
-              {eligible ? '✓ Eligible — semester-based authorization' : '⚠ Enrollment requirement not yet met'}
+              {eligible ? '✓ Eligible — semester-based authorization' : '⚠ Check enrollment requirement'}
             </div>
           </div>
         </div>
         <div className={styles.stageRight}>
-          <span className={styles.stageBadge} style={{ color: eligible ? 'var(--success)' : 'var(--warning)', background: eligible ? 'var(--success-soft)' : 'var(--warning-soft)' }}>
+          <span className={styles.stageBadge} style={{
+            color: eligible ? 'var(--success)' : 'var(--warning)',
+            background: eligible ? 'var(--success-soft)' : 'var(--warning-soft)'
+          }}>
             {eligible ? 'Eligible' : 'Check requirements'}
           </span>
           <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
@@ -381,25 +287,19 @@ function CPTStage({ data, isActive, onExpand, expanded }) {
       {expanded && (
         <div className={styles.stageBody}>
           <div className={styles.detailSection}>
-            <div className={styles.detailTitle}>CPT eligibility checklist</div>
+            <div className={styles.detailTitle}>CPT key facts</div>
             {[
-              { ok: months >= 9, text: `Full-time enrollment ≥ 9 months`, note: `You have ${months} months` },
-              { ok: true,        text: 'Work must be integral to curriculum', note: 'Verify with DSO' },
-              { ok: true,        text: 'DSO authorization required each semester', note: 'Listed on Form I-20' },
-              { ok: null,        text: '12+ months full-time CPT = OPT ineligible', note: 'Track your CPT duration' },
+              { ok: months >= 9, text: `Full-time enrollment ≥ 9 months (you have ${months})` },
+              { ok: true,        text: 'No unemployment day limit — authorization is semester-based' },
+              { ok: true,        text: 'DSO authorization required each semester on Form I-20' },
+              { ok: true,        text: 'Work must be integral part of established curriculum' },
+              { ok: months < 12, text: '⚠ 12+ months full-time CPT = OPT ineligible' },
             ].map((r, i) => (
-              <div key={i} className={`${styles.reqRow} ${r.ok === true ? styles.reqOk : r.ok === false ? styles.reqFail : styles.reqCheck}`}>
-                <span>{r.ok === true ? '✓' : r.ok === false ? '✗' : '⚠'}</span>
-                <div>
-                  <div className={styles.reqText}>{r.text}</div>
-                  {r.note && <div className={styles.reqNote}>{r.note}</div>}
-                </div>
+              <div key={i} className={`${styles.reqRow} ${r.ok ? styles.reqOk : styles.reqCheck}`}>
+                <span>{r.ok ? '✓' : '⚠'}</span>
+                <div className={styles.reqText}>{r.text}</div>
               </div>
             ))}
-          </div>
-
-          <div className={styles.infoBox}>
-            CPT has no unemployment day limit — authorization is semester-based. Always get DSO approval before starting work.
           </div>
         </div>
       )}
@@ -409,7 +309,7 @@ function CPTStage({ data, isActive, onExpand, expanded }) {
 
 // ── Main Journey Page ─────────────────────────────────────────────
 export default function JourneyPage({ visaData }) {
-  const [expanded, setExpanded] = useState({ opt: true, stem: false, h1b: false, cpt: true })
+  const [expanded, setExpanded] = useState({ opt: true, stem: false, cpt: true })
 
   const toggle = key => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
@@ -417,7 +317,6 @@ export default function JourneyPage({ visaData }) {
   const isCPT    = visaType === 'cpt'
   const isOPT    = visaType === 'opt'
   const isSTEM   = visaType === 'stem'
-  const isH1B    = visaType === 'h1b'
 
   // Calculate OPT result for carry-over into STEM
   const optResult = useMemo(() => {
@@ -498,16 +397,6 @@ export default function JourneyPage({ visaData }) {
               onExpand={() => toggle('stem')}
               expanded={expanded.stem}
             />
-            <div className={styles.stageArrow}>↓ Future</div>
-            <H1BStage
-              optData={visaData}
-              stemData={null}
-              hasMasters={true}
-              capExempt={false}
-              isFuture={true}
-              onExpand={() => toggle('h1b')}
-              expanded={expanded.h1b}
-            />
           </>
         )}
 
@@ -530,33 +419,10 @@ export default function JourneyPage({ visaData }) {
               onExpand={() => toggle('stem')}
               expanded={expanded.stem}
             />
-            <div className={styles.stageArrow}>↓ Future</div>
-            <H1BStage
-              optData={null}
-              stemData={visaData}
-              hasMasters={true}
-              capExempt={false}
-              isFuture={true}
-              onExpand={() => toggle('h1b')}
-              expanded={expanded.h1b}
-            />
           </>
         )}
 
-        {/* H-1B path */}
-        {isH1B && (
-          <H1BStage
-            optData={null}
-            stemData={null}
-            hasMasters={true}
-            capExempt={false}
-            isFuture={false}
-            onExpand={() => toggle('h1b')}
-            expanded={expanded.h1b}
-          />
-        )}
       </div>
-
       <p className={styles.disclaimer}>
         For informational purposes only. Always verify with your DSO or immigration attorney.
       </p>

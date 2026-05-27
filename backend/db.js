@@ -27,7 +27,7 @@ async function getPool() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS alert_subscribers (
         id           SERIAL PRIMARY KEY,
-        email        TEXT NOT NULL,
+        email        TEXT NOT NULL UNIQUE,
         name         TEXT,
         visa_type    TEXT NOT NULL,
         auth_start   DATE,
@@ -37,7 +37,16 @@ async function getPool() {
         sent_alerts  TEXT[] DEFAULT ARRAY[]::TEXT[],
         created_at   TIMESTAMPTZ DEFAULT NOW(),
         updated_at   TIMESTAMPTZ DEFAULT NOW()
-      )
+      );
+      -- Add unique constraint if table already exists without it
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint 
+          WHERE conname = 'alert_subscribers_email_key'
+        ) THEN
+          ALTER TABLE alert_subscribers ADD CONSTRAINT alert_subscribers_email_key UNIQUE (email);
+        END IF;
+      END $$
     `)
     console.log('[db] PostgreSQL connected')
     return pool
