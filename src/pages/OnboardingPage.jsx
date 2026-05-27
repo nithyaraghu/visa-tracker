@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { supabase } from '../auth/supabase.js'
 import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
+import { calcStemDates, calcOptEnd } from '../utils/stemDates.js'
 import styles from './OnboardingPage.module.css'
 
 const VISA_CARDS = [
@@ -50,6 +51,20 @@ function StepIndicator({ current, total }) {
   )
 }
 
+// Date helpers for auto-calculation
+function addDaysToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
+function addMonthsToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + n)
+  return d.toISOString().split('T')[0]
+}
+
 export default function OnboardingPage({ user, onComplete }) {
   const [step, setStep]           = useState(0)
   const [visaType, setVisaType]   = useState(null)
@@ -68,6 +83,37 @@ export default function OnboardingPage({ user, onComplete }) {
   const selectedCard = VISA_CARDS.find(c => c.id === visaType)
   const isCPT  = visaType === 'cpt'
   const totalSteps = isCPT ? 3 : (visaType === 'stem' ? 4 : 3)
+
+  // Auto-calculate STEM dates when OPT end date is entered
+  function handleOptStartChange(val) {
+    setOptAuthStart(val)
+    if (val) {
+      const optEnd = calcOptEnd(val)
+      setOptAuthEnd(optEnd)
+      if (visaType === 'stem' && optEnd) {
+        const { stemStart, stemEnd } = calcStemDates(optEnd)
+        setAuthStart(stemStart)
+        setAuthEnd(stemEnd)
+      }
+    }
+  }
+
+  function handleAuthStartChange(val) {
+    setAuthStart(val)
+    if ((visaType === 'opt' || visaType === 'cpt') && val) {
+      setAuthEnd(calcOptEnd(val))
+    }
+  }
+
+  function handleOptEndChange(val) {
+    setOptAuthEnd(val)
+    if (visaType === 'stem' && val) {
+      const { stemStart, stemEnd } = calcStemDates(val)
+      setAuthStart(stemStart)
+      setAuthEnd(stemEnd)
+    }
+  }
+
 
   const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
   const removePeriod = id => setPeriods(p => p.filter(x => x.id !== id))
@@ -243,11 +289,11 @@ export default function OnboardingPage({ user, onComplete }) {
                 <div className={styles.row2}>
                   <div className={styles.field}>
                     <label className={styles.label}>OPT start date</label>
-                    <input type="date" className={styles.input} value={optAuthStart} onChange={e => setOptAuthStart(e.target.value)} />
+                    <input type="date" className={styles.input} value={optAuthStart} onChange={e => handleOptStartChange(e.target.value)} />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>OPT end date</label>
-                    <input type="date" className={styles.input} value={optAuthEnd} onChange={e => setOptAuthEnd(e.target.value)} />
+                    <input type="date" className={styles.input} value={optAuthEnd} onChange={e => handleOptEndChange(e.target.value)} />
                   </div>
                 </div>
                 <div className={styles.sectionHead}>
@@ -275,13 +321,19 @@ export default function OnboardingPage({ user, onComplete }) {
                 <label className={styles.label}>
                   {visaType === 'stem' ? 'STEM OPT start' : 'OPT start date'}
                 </label>
-                <input type="date" className={styles.input} value={authStart} onChange={e => setAuthStart(e.target.value)} />
+                <input type="date" className={styles.input} value={authStart} onChange={e => handleAuthStartChange(e.target.value)} />
+                {visaType === 'stem' && authStart && (
+                  <p className={styles.fieldHint} style={{color:'var(--success)'}}>✓ Auto-calculated from OPT end date</p>
+                )}
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>
                   {visaType === 'stem' ? 'STEM OPT end' : 'OPT end date (EAD expiry)'}
                 </label>
                 <input type="date" className={styles.input} value={authEnd} onChange={e => setAuthEnd(e.target.value)} />
+                {visaType === 'stem' && authEnd && (
+                  <p className={styles.fieldHint} style={{color:'var(--success)'}}>✓ Auto-calculated (24 months from start)</p>
+                )}
               </div>
             </div>
 
@@ -334,11 +386,34 @@ export default function OnboardingPage({ user, onComplete }) {
             <div className={styles.stepBadge} style={{ color: selectedCard?.color, background: `${selectedCard?.color}18` }}>
               {selectedCard?.icon} {selectedCard?.label}
             </div>
-            <h1 className={styles.stepTitle}>Your employment history</h1>
-            <p className={styles.stepSub}>Add jobs during your authorization period — we'll calculate gaps automatically</p>
+            <h1 className={styles.stepTitle}>
+              {visaType === 'stem' ? 'Your STEM OPT employment' : 'Your employment history'}
+            </h1>
+            <p className={styles.stepSub}>
+              {visaType === 'stem'
+                ? 'Add jobs during your STEM OPT period only — your OPT unemployment days are already carried over from the previous step'
+                : "Add jobs during your authorization period — we'll calculate gaps automatically"}
+            </p>
+
+            {visaType === 'stem' && (
+              <div style={{
+                background: 'rgba(59,130,246,0.08)',
+                border: '1px solid rgba(59,130,246,0.25)',
+                borderRadius: 8,
+                padding: '10px 14px',
+                fontSize: '0.82rem',
+                color: '#60a5fa',
+              }}>
+                {'📋 OPT carry-over already included. Enter only jobs from '}
+                <strong>{authStart || 'your STEM OPT start date'}</strong>
+                {' onwards'}
+              </div>
+            )}
 
             <div className={styles.sectionHead}>
-              <label className={styles.label}>Employment periods</label>
+              <label className={styles.label}>
+                {visaType === 'stem' ? 'STEM OPT employment periods' : 'Employment periods'}
+              </label>
               <button className={styles.addBtn} onClick={addPeriod}>+ Add period</button>
             </div>
             {periods.map(p => (
