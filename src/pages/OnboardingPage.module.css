@@ -259,3 +259,96 @@
 .nextBtn:hover:not(:disabled), .finishBtn:hover:not(:disabled) { background: var(--accent-dark); }
 .nextBtn:disabled, .finishBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .finishBtn { width: 100%; }
+
+/* ── Blocked / DSO card ── */
+.blockedCard {
+  text-align: center;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.blockedIcon { font-size: 3rem; }
+.blockedTitle { font-size: 1.3rem; font-weight: 600; color: var(--danger); }
+.blockedMsg {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 480px;
+  text-align: left;
+  background: var(--danger-soft);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+.blockedActions { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 480px; }
+.dsoCard {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  text-align: left;
+}
+.dsoTitle { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.dsoSteps { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; color: var(--text-secondary); }
+
+/* ── Auto-calc box ── */
+.autoCalcBox {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.autoCalcTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.dateInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.dateInfo:last-child { border-bottom: none; }
+.dateInfoLabel { font-size: 0.8rem; color: var(--text-secondary); }
+.dateInfoVal { font-size: 0.875rem; font-weight: 500; }
+.dateInfoNote { font-size: 0.75rem; color: var(--text-muted); }
+
+/* ── Hints ── */
+.errorHint   { font-size: 0.78rem; color: var(--danger);  margin-top: 4px; }
+.successHint { font-size: 0.78rem; color: var(--success); margin-top: 4px; }
+.fieldHint   { font-size: 0.75rem; color: var(--text-muted); }
+.warningBox {
+  padding: 10px 14px;
+  background: var(--warning-soft);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--warning);
+}
+
+/* ── Eligibility result ── */
+.eligResult {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.eligOk   { background: var(--success-soft); border-color: rgba(34,197,94,0.3); color: var(--success); }
+.eligFail { background: var(--danger-soft);  border-color: rgba(239,68,68,0.3);  color: var(--danger);  }
+.eligNote { font-size: 0.78rem; font-weight: 400; margin-top: 3px; }
