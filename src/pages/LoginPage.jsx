@@ -67,7 +67,10 @@ export default function LoginPage() {
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true }
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: undefined,  // disable magic link redirect
+      }
     })
     if (error) { setError(error.message) }
     else {
