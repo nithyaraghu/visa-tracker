@@ -231,8 +231,7 @@ export default function TrackerPage({ initialData }) {
         <p className={styles.subtitle}>Calculate your unemployment days and compliance window</p>
       </div>
 
-      <div className={styles.grid}>
-        <div className={styles.card}>
+      <div className={styles.formCard}>
           <div className={styles.section}>
             <label className={styles.label}>Visa / Authorization type</label>
             <select className={styles.select} value={visaType}
@@ -338,9 +337,9 @@ export default function TrackerPage({ initialData }) {
           <button className={styles.calcBtn} onClick={handleSave}>
             Calculate unemployment days
           </button>
-        </div>
+      </div>
 
-        <div>
+      <div>
           {!result ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>📊</div>
@@ -348,105 +347,114 @@ export default function TrackerPage({ initialData }) {
             </div>
           ) : (
             <>
-              <div className={styles.statusBadge} style={{ background: meta.bg, borderColor: meta.color }}>
-                <span className={styles.statusDot} style={{ background: meta.color }} />
-                <span style={{ color: meta.color, fontWeight: 500 }}>{meta.label}</span>
-                {result.limit && (
-                  <span className={styles.statusDetail} style={{ color: meta.color }}>
-                    {visaType === 'stem'
-                      ? `— ${result.stemTotal} / ${result.limit} days used (${result.carryOver} OPT + ${result.unemployedDays} STEM)`
-                      : `— ${result.countable} / ${result.limit} days used`}
-                  </span>
-                )}
-              </div>
-
-              {/* STEM: show cumulative breakdown prominently */}
+              {/* ── Context cards (OPT + STEM periods) ── */}
               {visaType === 'stem' && (
-                <div style={{
-                  background: 'var(--surface-2)',
-                  border: `1px solid ${meta.color}40`,
-                  borderRadius: 'var(--radius-md)',
-                  padding: '14px 16px',
-                  marginBottom: '1rem',
-                }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                    150-Day Cumulative Breakdown (OPT + STEM OPT)
+                <div className={styles.contextCards}>
+                  <div className={styles.contextCard}>
+                    <div className={styles.contextCardLabel}>OPT period</div>
+                    <div className={styles.contextCardDate}>
+                      {optAuthStart || '—'} → {optAuthEnd || '—'}
+                    </div>
+                    <div className={styles.contextCardStat} style={{ color: 'var(--warning)' }}>
+                      {result.carryOver} days carried over
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.9rem' }}>
-                    <span style={{ color: 'var(--warning)', fontWeight: 600 }}>{result.carryOver} days</span>
-                    <span style={{ color: 'var(--text-muted)' }}>OPT carry-over</span>
-                    <span style={{ color: 'var(--text-muted)' }}>+</span>
-                    <span style={{ color: meta.color, fontWeight: 600 }}>{result.unemployedDays} days</span>
-                    <span style={{ color: 'var(--text-muted)' }}>STEM OPT</span>
-                    <span style={{ color: 'var(--text-muted)' }}>=</span>
-                    <span style={{ color: meta.color, fontWeight: 700, fontSize: '1rem' }}>{result.stemTotal} / 150 days</span>
-                    <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>
-                      ({Math.max(0, 150 - result.stemTotal)} remaining)
-                    </span>
+                  <div className={styles.contextCard}>
+                    <div className={styles.contextCardLabel}>STEM OPT period</div>
+                    <div className={styles.contextCardDate}>
+                      {authStart || '—'} → {authEnd || '—'}
+                    </div>
+                    <div className={styles.contextCardStat} style={{ color: meta.color }}>
+                      {result.unemployedDays} days this period
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div className={styles.metrics}>
-                {[
-                  { label: 'Total auth days',  val: result.totalDays,    color: 'var(--text-primary)' },
-                  { label: 'Employed days',     val: result.employedDays, color: 'var(--success)'      },
-                  ...(visaType === 'stem' ? [
-                    { label: 'OPT unemployment (carried over)', val: result.carryOver,      color: 'var(--warning)' },
-                    { label: 'STEM OPT unemployment',           val: result.unemployedDays, color: meta.color       },
-                    { label: 'Cumulative total (OPT + STEM)',   val: result.stemTotal,      color: meta.color       },
-                  ] : [
-                    { label: 'Unemployed days', val: result.unemployedDays, color: meta.color },
-                  ]),
-                  ...(result.limit ? [{
-                    label: 'Days remaining',
-                    val: Math.max(0, result.limit - result.countable),
-                    color: Math.max(0, result.limit - result.countable) <= 10 ? 'var(--danger)' : meta.color
-                  }] : [])
-                ].map(m => (
-                  <div key={m.label} className={styles.metricCard}>
-                    <div className={styles.metricLabel}>{m.label}</div>
-                    <div className={styles.metricVal} style={{ color: m.color }}>{m.val}</div>
+              {/* ── Hero card ── */}
+              <div className={styles.heroCard}>
+                <div className={styles.heroTop}>
+                  <div>
+                    <div className={styles.heroLabel}>
+                      {visaType === 'stem' ? 'Cumulative unemployment' : 'Unemployment days'}
+                    </div>
+                    <div className={styles.heroNum}>
+                      <span style={{ color: meta.color }}>{result.countable}</span>
+                      <span className={styles.heroLimit}>/ {result.limit || '—'} days</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className={styles.heroBadge} style={{ background: `${meta.color}18`, color: meta.color }}>
+                    {meta.label}
+                  </div>
+                </div>
 
-              {(result.limit || result.thresholds) && (() => {
-                const barLimit   = result.limit || result.thresholds?.critical || 90
-                const barLabel   = result.limit ? `${result.limit}-day limit` : `${barLimit}-day advisory max`
-                return (
-                <div className={styles.barSection}>
-                  <div className={styles.barLabels}>
-                    <span>0 days</span><span>{barLabel}</span>
-                  </div>
-                  <div className={styles.barTrack}>
-                    {visaType === 'stem' && result.carryOver > 0 && (
+                {/* Progress bar */}
+                {result.limit && (
+                  <div className={styles.heroBar}>
+                    <div className={styles.heroBarTrack}>
+                      {visaType === 'stem' && result.carryOver > 0 && (
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, height: '100%',
+                          width: `${Math.min(100, result.carryOver / result.limit * 100)}%`,
+                          background: 'var(--warning)',
+                          borderRadius: result.carryOver === result.countable ? '5px' : '5px 0 0 5px'
+                        }} />
+                      )}
                       <div style={{
-                        position: 'absolute', left: 0, top: 0, height: '100%',
-                        width: `${Math.min(100, result.carryOver / barLimit * 100)}%`,
-                        background: 'var(--warning)', borderRadius: '5px 0 0 5px'
+                        position: 'absolute',
+                        left: visaType === 'stem' ? `${Math.min(100, result.carryOver / result.limit * 100)}%` : 0,
+                        top: 0, height: '100%',
+                        width: `${Math.min(100 - (visaType === 'stem' ? result.carryOver / result.limit * 100 : 0), result.unemployedDays / result.limit * 100)}%`,
+                        background: meta.color,
+                        borderRadius: result.carryOver > 0 ? '0 5px 5px 0' : '5px'
                       }} />
-                    )}
-                    <div className={styles.barFill} style={{
-                      marginLeft: visaType === 'stem' ? `${Math.min(100, result.carryOver / barLimit * 100)}%` : 0,
-                      width: `${Math.min(100 - (visaType === 'stem' ? result.carryOver / barLimit * 100 : 0), result.unemployedDays / barLimit * 100)}%`,
-                      background: meta.color,
-                      borderRadius: result.carryOver > 0 ? '0 5px 5px 0' : '5px'
-                    }} />
-                    {[result.thresholds?.warn, result.thresholds?.critical]
-                      .filter(Boolean).map(t => (
-                        <div key={t} className={styles.marker} style={{ left: `${Math.min(100, t / barLimit * 100)}%` }} />
+                      {[result.thresholds?.warn, result.thresholds?.critical].filter(Boolean).map(t => (
+                        <div key={t} className={styles.marker} style={{ left: `${Math.min(100, t / result.limit * 100)}%` }} />
                       ))}
+                    </div>
+                    <div className={styles.heroBarLegend}>
+                      {visaType === 'stem' && result.carryOver > 0 && (
+                        <span><span className={styles.legendDot} style={{ background: 'var(--warning)' }} />OPT carry-over ({result.carryOver}d)</span>
+                      )}
+                      <span><span className={styles.legendDot} style={{ background: meta.color }} />{visaType === 'stem' ? 'STEM OPT' : 'Unemployed'} ({result.unemployedDays}d)</span>
+                      <span><span className={styles.legendDot} style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} />{Math.max(0, result.limit - result.countable)} remaining</span>
+                    </div>
                   </div>
-                  {visaType === 'stem' && result.carryOver > 0 && (
-                    <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.75rem' }}>
-                      <span style={{ color: 'var(--warning)' }}>■ OPT carry-over ({result.carryOver}d)</span>
-                      <span style={{ color: meta.color }}>■ STEM OPT ({result.unemployedDays}d)</span>
+                )}
+
+                {/* 4-stat row */}
+                <div className={styles.heroStats}>
+                  <div className={styles.heroStat}>
+                    <div className={styles.heroStatLabel}>Employed days</div>
+                    <div className={styles.heroStatVal} style={{ color: 'var(--success)' }}>{result.employedDays}</div>
+                  </div>
+                  {visaType === 'stem' ? (
+                    <>
+                      <div className={styles.heroStat}>
+                        <div className={styles.heroStatLabel}>OPT carry-over</div>
+                        <div className={styles.heroStatVal} style={{ color: 'var(--warning)' }}>{result.carryOver}</div>
+                      </div>
+                      <div className={styles.heroStat} style={{ borderLeft: '1px solid var(--border)' }}>
+                        <div className={styles.heroStatLabel}>STEM unemployed</div>
+                        <div className={styles.heroStatVal} style={{ color: meta.color }}>{result.unemployedDays}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.heroStat}>
+                      <div className={styles.heroStatLabel}>Unemployed days</div>
+                      <div className={styles.heroStatVal} style={{ color: meta.color }}>{result.unemployedDays}</div>
+                    </div>
+                  )}
+                  {result.limit && (
+                    <div className={styles.heroStat} style={{ borderLeft: '1px solid var(--border)' }}>
+                      <div className={styles.heroStatLabel}>Days remaining</div>
+                      <div className={styles.heroStatVal} style={{ color: Math.max(0, result.limit - result.countable) <= 10 ? 'var(--danger)' : meta.color }}>
+                        {Math.max(0, result.limit - result.countable)}
+                      </div>
                     </div>
                   )}
                 </div>
-                )
-              })()}
+              </div>
 
               {/* ── Deadline + Milestones ── */}
               {(() => {
@@ -544,7 +552,6 @@ export default function TrackerPage({ initialData }) {
             </>
           )}
         </div>
-      </div>
     </div>
   )
 }

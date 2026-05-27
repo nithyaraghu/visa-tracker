@@ -1,42 +1,58 @@
-.page { }
+.page { max-width: 900px; margin: 0 auto; }
 .pageHeader { margin-bottom: 2rem; }
-.pageHeader h1 { font-size: 2.2rem; color: var(--text-primary); }
-.pageHeader h1 span { color: var(--accent); }
-.subtitle { color: var(--text-secondary); margin-top: 6px; font-size: 0.95rem; }
+.pageHeader h1 { font-size: 2rem; color: var(--text-primary); }
+.subtitle { color: var(--text-secondary); margin-top: 4px; font-size: 0.875rem; }
 
-.grid {
-  display: grid;
-  grid-template-columns: minmax(380px, 1fr) minmax(420px, 1.4fr);
-  gap: 2rem;
-  align-items: start;
-}
-@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-
-.card {
+/* ── Input form card ── */
+.formCard {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  margin-bottom: 1.5rem;
 }
+.formCard details summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.formCard details summary::-webkit-details-marker { display: none; }
+.formCard details[open] summary { margin-bottom: 1rem; }
+
+.formTitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 600px) { .formRow { grid-template-columns: 1fr; } }
 
 .section { display: flex; flex-direction: column; gap: 8px; }
-.sectionHead { display: flex; justify-content: space-between; align-items: center; }
-
-.label { font-size: 0.8rem; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
-.miniLabel { font-size: 0.75rem; color: var(--text-muted); }
-.hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.label { font-size: 0.75rem; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
+.fieldHint { font-size: 0.75rem; color: var(--text-muted); }
 
 .select, .input {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 11px;
   background: var(--slate-900);
   border: 1px solid var(--border-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.875rem;
+  font-family: var(--font-body);
   outline: none;
   transition: all 0.15s;
 }
@@ -44,6 +60,7 @@
 .input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 600px) { .row2 { grid-template-columns: 1fr; } }
 
 .periodRow {
   display: grid;
@@ -51,9 +68,27 @@
   gap: 8px;
   align-items: end;
   padding: 10px;
-  background: var(--surface-2);
+  background: var(--surface-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+@media (max-width: 600px) { .periodRow { grid-template-columns: 1fr; } }
+
+.optBlock {
+  background: var(--surface-3);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.optBlockTitle {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--warning);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
 }
 
 .addBtn {
@@ -73,7 +108,6 @@
   border: none;
   color: var(--text-muted);
   font-size: 1.2rem;
-  line-height: 1;
   padding: 0 4px;
   align-self: center;
   margin-top: 16px;
@@ -82,19 +116,19 @@
 
 .calcBtn {
   width: 100%;
-  padding: 12px;
+  padding: 13px;
   background: var(--accent);
   border: none;
   border-radius: var(--radius-md);
   color: #fff;
   font-size: 0.9rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
   transition: background 0.15s;
+  margin-top: 4px;
 }
 .calcBtn:hover { background: var(--accent-dark); }
 
-/* Results */
+/* ── Empty state ── */
 .emptyState {
   text-align: center;
   padding: 3rem 2rem;
@@ -102,56 +136,143 @@
   border: 1px dashed var(--border-md);
   border-radius: var(--radius-lg);
 }
-.emptyIcon { font-size: 2.5rem; margin-bottom: 1rem; }
+.emptyIcon { font-size: 2rem; margin-bottom: 1rem; }
 
-.statusBadge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-.statusDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.statusDetail { font-size: 0.8rem; opacity: 0.85; }
-
-.metrics {
+/* ── Context cards (OPT + STEM period summary) ── */
+.contextCards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 600px) { .contextCards { grid-template-columns: 1fr; } }
+
+.contextCard {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+}
+.contextCardLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.contextCardDate {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.contextCardStat { font-size: 0.82rem; font-weight: 500; }
+
+/* ── Hero card ── */
+.heroCard {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
   margin-bottom: 1rem;
 }
-.metricCard {
-  background: var(--surface-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-}
-.metricLabel { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
-.metricVal { font-size: 1.6rem; font-weight: 300; }
-
-.barSection { margin-bottom: 1.25rem; }
-.barLabels {
+.heroTop {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+.heroLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   margin-bottom: 6px;
 }
-.barTrack {
+.heroNum { display: flex; align-items: baseline; gap: 8px; }
+.heroNum > span:first-child {
+  font-size: 3rem;
+  font-weight: 300;
+  line-height: 1;
+}
+.heroLimit { font-size: 1.1rem; color: var(--text-secondary); }
+.heroBadge {
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Hero progress bar */
+.heroBar { margin-bottom: 1.5rem; }
+.heroBarTrack {
   height: 10px;
   background: var(--surface-3);
   border-radius: 5px;
-  overflow: visible;
   position: relative;
+  overflow: hidden;
+  margin-bottom: 10px;
 }
-.barFill {
-  height: 100%;
-  border-radius: 5px;
-  transition: width 0.5s ease;
+.heroBarLegend { display: flex; gap: 16px; flex-wrap: wrap; }
+.heroBarLegend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
+.legendDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Hero stats row */
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+.heroStat { text-align: center; padding: 0 8px; }
+.heroStatLabel { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 5px; white-space: nowrap; }
+.heroStatVal { font-size: 1.6rem; font-weight: 300; }
+
+/* ── Milestones & deadline ── */
+.timelineSection { margin-bottom: 1.25rem; }
+
+.deadlineRow, .milestoneRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+.deadlineRow { background: var(--danger-soft); border-color: rgba(239,68,68,0.3); }
+.milestoneRow { background: var(--surface-2); }
+.milestoneRow:first-of-type { background: var(--warning-soft); border-color: rgba(245,158,11,0.25); }
+
+.deadlineLeft, .milestoneLeft { display: flex; align-items: center; gap: 10px; }
+.deadlineIcon, .milestoneIcon { font-size: 1rem; flex-shrink: 0; }
+.deadlineLabel, .milestoneLabel { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+.deadlineDate, .milestoneDate { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+.deadlineBadge {
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.deadlineBadge[data-level="over"]   { background: var(--danger-soft);  color: var(--danger);  }
+.deadlineBadge[data-level="urgent"] { background: var(--danger-soft);  color: var(--danger);  }
+.deadlineBadge[data-level="warn"]   { background: var(--warning-soft); color: var(--warning); }
+
 .marker {
   position: absolute;
   top: -3px;
@@ -162,15 +283,16 @@
   transform: translateX(-50%);
 }
 
+/* ── Gaps section ── */
 .gapsSection { }
-.gapsTitle { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-family: var(--font-body); font-weight: 500; letter-spacing: 0; }
+.gapsTitle { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
 .noGaps { font-size: 0.875rem; color: var(--text-muted); }
 
 .gapRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 9px 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
 }
@@ -185,88 +307,9 @@
 .gapBadge[data-sev="warning"] { background: var(--warning-soft); color: var(--warning); }
 .gapBadge[data-sev="ok"]      { background: var(--success-soft); color: var(--success); }
 
-/* OPT carry-over block */
-.optBlock {
-  background: var(--surface-2);
-  border: 1px solid rgba(245,158,11,0.25);
-  border-radius: var(--radius-md);
-  padding: 14px;
-}
-.optBlockHeader {
+/* Collapse old grid — now single column */
+.grid {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 0;
 }
-.optBlockTitle {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--warning);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.optBadge {
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: var(--warning-soft);
-  color: var(--warning);
-}
-
-/* ── Milestones & deadline ── */
-.timelineSection {
-  margin-bottom: 1.25rem;
-}
-
-.deadlineRow, .milestoneRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  border: 1px solid var(--border);
-}
-.deadlineRow {
-  background: var(--danger-soft);
-  border-color: rgba(239,68,68,0.3);
-}
-.milestoneRow {
-  background: var(--surface-2);
-}
-.milestoneRow:first-of-type {
-  background: var(--warning-soft);
-  border-color: rgba(245,158,11,0.25);
-}
-
-.deadlineLeft, .milestoneLeft {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.deadlineIcon, .milestoneIcon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-.deadlineLabel, .milestoneLabel {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-.deadlineDate, .milestoneDate {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.deadlineBadge {
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 3px 10px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-.deadlineBadge[data-level="over"]   { background: var(--danger-soft);  color: var(--danger);  }
-.deadlineBadge[data-level="urgent"] { background: var(--danger-soft);  color: var(--danger);  }
-.deadlineBadge[data-level="warn"]   { background: var(--warning-soft); color: var(--warning); }
