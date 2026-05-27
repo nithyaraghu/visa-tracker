@@ -124,22 +124,15 @@ function addMonthsToStr(dateStr, n) {
 }
 
 export default function TrackerPage({ initialData }) {
-  // Seed state from onboarding data if available
-  const initPeriods = initialData?.employment_periods?.length
-    ? initialData.employment_periods.map(p => ({ id: ++_id, startStr: p.start || '', endStr: p.end || '' }))
-    : [newPeriod()]
-
-  const initOptPeriods = initialData?.opt_periods?.length
-    ? initialData.opt_periods.map(p => ({ id: ++_id, startStr: p.start || '', endStr: p.end || '' }))
-    : [newPeriod()]
-
+  // Tracker starts empty — fresh calculation tool
+  // Only pre-select visa type from onboarding
   const [visaType, setVisaType]     = useState(initialData?.visa_type || 'opt')
-  const [authStart, setAuthStart]   = useState(initialData?.auth_start || '')
-  const [authEnd, setAuthEnd]       = useState(initialData?.auth_end || '')
-  const [periods, setPeriods]       = useState(initPeriods)
-  const [calculated, setCalculated] = useState(!!(initialData?.auth_start))
-  const [optAuthStart, setOptAuthStart] = useState(initialData?.opt_auth_start || '')
-  const [optAuthEnd, setOptAuthEnd]     = useState(initialData?.opt_auth_end || '')
+  const [authStart, setAuthStart]   = useState('')
+  const [authEnd, setAuthEnd]       = useState('')
+  const [periods, setPeriods]       = useState([newPeriod()])
+  const [calculated, setCalculated] = useState(false)
+  const [optAuthStart, setOptAuthStart] = useState('')
+  const [optAuthEnd, setOptAuthEnd]     = useState('')
 
   // Auto-calculate OPT end when OPT/auth start is entered
   function handleAuthStartChange(val) {
@@ -152,12 +145,12 @@ export default function TrackerPage({ initialData }) {
   // Auto-calculate OPT end when OPT authorization start (for STEM carry-over) changes
   function handleOptAuthStartChange(val) {
     setOptAuthStart(val)
-    if (visaType === 'stem' && val && !optAuthEnd) {
+    if (visaType === 'stem' && val) {
       const optEnd = calcOptEnd(val)
       setOptAuthEnd(optEnd)
       const { stemStart, stemEnd } = calcStemDates(optEnd)
-      if (!authStart) setAuthStart(stemStart)
-      if (!authEnd)   setAuthEnd(stemEnd)
+      setAuthStart(stemStart)
+      setAuthEnd(stemEnd)
     }
   }
 
@@ -166,11 +159,11 @@ export default function TrackerPage({ initialData }) {
     setOptAuthEnd(val)
     if (visaType === 'stem' && val) {
       const { stemStart, stemEnd } = calcStemDates(val)
-      if (!authStart) setAuthStart(stemStart)
-      if (!authEnd)   setAuthEnd(stemEnd)
+      setAuthStart(stemStart)
+      setAuthEnd(stemEnd)
     }
   }
-  const [optPeriods, setOptPeriods]     = useState(initOptPeriods)
+  const [optPeriods, setOptPeriods]     = useState([newPeriod()])
 
   const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
   const removePeriod = id => setPeriods(p => p.filter(x => x.id !== id))
@@ -258,12 +251,12 @@ export default function TrackerPage({ initialData }) {
                 <div>
                   <label className={styles.miniLabel}>OPT auth start</label>
                   <input type="date" className={styles.input} value={optAuthStart}
-                    onChange={e => { setOptAuthStart(e.target.value); setCalculated(false) }} />
+                    onChange={e => { handleOptAuthStartChange(e.target.value); setCalculated(false) }} />
                 </div>
                 <div>
                   <label className={styles.miniLabel}>OPT auth end</label>
                   <input type="date" className={styles.input} value={optAuthEnd}
-                    onChange={e => { setOptAuthEnd(e.target.value); setCalculated(false) }} />
+                    onChange={e => { handleOptEndChange(e.target.value); setCalculated(false) }} />
                 </div>
               </div>
               <div className={styles.sectionHead} style={{ marginBottom: 6 }}>
