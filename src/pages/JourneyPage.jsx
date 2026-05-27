@@ -320,7 +320,23 @@ export default function JourneyPage({ visaData }) {
 
   // Calculate OPT result for carry-over into STEM
   const optResult = useMemo(() => {
-    if (!visaData?.auth_start || isSTEM) return null
+    // STEM users: calculate carry-over from opt_auth fields
+    if (isSTEM) {
+      if (!visaData?.opt_auth_start) return null
+      const periods = (visaData.opt_periods || [])
+        .filter(p => p.start)
+        .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
+      try {
+        return calcUnemployment({
+          authStart: parseLocalDate(visaData.opt_auth_start),
+          authEnd:   parseLocalDate(visaData.opt_auth_end),
+          employmentPeriods: periods,
+          visaType: 'opt'
+        })
+      } catch { return null }
+    }
+    // OPT users: calculate from auth_start
+    if (!visaData?.auth_start) return null
     const periods = (visaData.employment_periods || [])
       .filter(p => p.start)
       .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
@@ -332,7 +348,7 @@ export default function JourneyPage({ visaData }) {
         visaType: 'opt'
       })
     } catch { return null }
-  }, [visaData])
+  }, [visaData, isSTEM])
 
   if (!visaData || !visaData.visa_type) {
     return (
@@ -413,7 +429,7 @@ export default function JourneyPage({ visaData }) {
             <STEMStage
               optData={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end }}
               stemData={visaData}
-              optResult={null}
+              optResult={optResult}
               isActive={true}
               isFuture={false}
               onExpand={() => toggle('stem')}
