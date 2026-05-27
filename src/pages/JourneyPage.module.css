@@ -259,3 +259,83 @@
   .stageBody   { padding: 1rem; }
   .carryOverRow { gap: 6px; font-size: 0.8rem; }
 }
+
+/* ── Compliance checklist ── */
+.checklistCard {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.checklistHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 6px;
+}
+.checklistTitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.checklistProgress {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.checklistBar {
+  height: 3px;
+  background: var(--border);
+  margin: 0 14px 8px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.checklistRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.checklistRow:hover { background: var(--surface-2); }
+.checklistDone { background: var(--surface-2); opacity: 0.6; }
+
+.checklistCheck {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.checklistLabel {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.checklistDeadline {
+  font-size: 0.75rem;
+  margin-top: 2px;
+  font-weight: 500;
+}
+.checklistNote {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.checklistTag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}

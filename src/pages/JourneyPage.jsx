@@ -8,6 +8,66 @@ function addMonths(d, n) { const r = new Date(d); r.setMonth(r.getMonth() + n); 
 function fmtDate(d)      { if (!d) return '—'; return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
 function daysFromNow(d)  { const t = new Date(); t.setHours(0,0,0,0); return Math.round((d - t) / 86400000) }
 
+// ── Compliance checklist stored in localStorage ─────────────────
+function useChecklist(userId) {
+  const key = `visaguard_checklist_${userId}`
+  const [checks, setChecks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(key) || '{}') }
+    catch { return {} }
+  })
+  function toggle(id) {
+    setChecks(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      localStorage.setItem(key, JSON.stringify(next))
+      return next
+    })
+  }
+  return [checks, toggle]
+}
+
+// ── Compliance milestone checklist ───────────────────────────────
+function ComplianceChecklist({ items, checks, toggle }) {
+  if (!items?.length) return null
+  const done  = items.filter(i => checks[i.id]).length
+  const total = items.length
+  const pct   = Math.round(done / total * 100)
+  const allDone = done === total
+
+  return (
+    <div className={styles.checklistCard}>
+      <div className={styles.checklistHeader}>
+        <span className={styles.checklistTitle}>Compliance checklist</span>
+        <span className={styles.checklistProgress} style={{ color: allDone ? 'var(--success)' : 'var(--text-muted)' }}>
+          {done}/{total} done
+        </span>
+      </div>
+      <div className={styles.checklistBar}>
+        <div style={{ width: `${pct}%`, height: '100%', background: allDone ? 'var(--success)' : 'var(--accent)', borderRadius: 3, transition: 'width 0.3s' }} />
+      </div>
+      {items.map(item => (
+        <div key={item.id} className={`${styles.checklistRow} ${checks[item.id] ? styles.checklistDone : ''}`}
+          onClick={() => toggle(item.id)}>
+          <div className={styles.checklistCheck} style={{ borderColor: checks[item.id] ? 'var(--success)' : 'var(--border-md)', background: checks[item.id] ? 'var(--success)' : 'transparent' }}>
+            {checks[item.id] && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span>}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className={styles.checklistLabel} style={{ color: checks[item.id] ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: checks[item.id] ? 'line-through' : 'none' }}>
+              {item.label}
+            </div>
+            {item.deadline && !checks[item.id] && (
+              <div className={styles.checklistDeadline} style={{ color: item.urgent ? 'var(--danger)' : 'var(--text-muted)' }}>
+                {item.deadline}
+              </div>
+            )}
+            {item.note && <div className={styles.checklistNote}>{item.note}</div>}
+          </div>
+          {item.tag && <span className={styles.checklistTag}>{item.tag}</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const STATUS_COLOR = { ok: 'var(--success)', warn: 'var(--warning)', urgent: 'var(--warning)', critical: 'var(--danger)', over: 'var(--danger)' }
 const STATUS_LABEL = { ok: 'Within limits', warn: 'Warning', urgent: 'Urgent', critical: 'Critical', over: 'Exceeded' }
 
@@ -49,7 +109,7 @@ function NextSteps({ steps }) {
 }
 
 // ── OPT Stage ────────────────────────────────────────────────────
-function OPTStage({ data, isActive, isFuture, onExpand, expanded }) {
+function OPTStage({ data, isActive, isFuture, onExpand, expanded, checks, toggle }) {
   const result = useMemo(() => {
     if (!data?.auth_start) return null
     const periods = (data.employment_periods || []).filter(p => p.start)
@@ -135,6 +195,18 @@ function OPTStage({ data, isActive, isFuture, onExpand, expanded }) {
               ℹ OPT gives you 12 months of work authorization after graduation. You have a 90-day cumulative unemployment limit — days count 7 days/week including weekends.
             </div>
           )}
+
+          {isActive && checks && toggle && (
+            <ComplianceChecklist checks={checks} toggle={toggle} items={[
+              { id: 'opt_i765_filed',     label: 'Filed Form I-765 (Application for Employment Authorization)', tag: 'Before graduation' },
+              { id: 'opt_ead_received',   label: 'Received EAD card from USCIS', note: 'Allow 3-5 months processing time' },
+              { id: 'opt_employer_found', label: 'Found qualifying employer (related to degree field)' },
+              { id: 'opt_stem_applied',   label: 'Applied for STEM OPT extension',
+                deadline: applyBy ? `Deadline: ${fmtDate(applyBy)}` : undefined,
+                urgent: applyBy ? daysFromNow(applyBy) < 30 : false },
+              { id: 'opt_dso_notified',   label: 'Notified DSO of employer details within 10 days of hire' },
+            ]} />
+          )}
         </div>
       )}
     </div>
@@ -142,7 +214,7 @@ function OPTStage({ data, isActive, isFuture, onExpand, expanded }) {
 }
 
 // ── STEM OPT Stage ───────────────────────────────────────────────
-function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand, expanded }) {
+function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand, expanded, checks, toggle }) {
   const optCarryOver = useMemo(() => optResult?.unemployedDays || 0, [optResult])
 
   const stemResult = useMemo(() => {
@@ -258,6 +330,22 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
 
           <NextSteps steps={nextSteps} />
 
+          {(isActive || isFuture) && checks && toggle && (
+            <ComplianceChecklist checks={checks} toggle={toggle} items={[
+              { id: 'stem_i765_filed',    label: 'Filed Form I-765 for STEM OPT extension',
+                deadline: applyBy ? `Apply by ${fmtDate(applyBy)}` : undefined,
+                urgent: applyBy ? daysFromNow(applyBy) < 30 : false },
+              { id: 'stem_i983_signed',   label: 'Form I-983 Training Plan signed by employer', note: 'Required before starting work' },
+              { id: 'stem_everify',       label: 'Confirmed employer is E-Verify registered', note: 'Verify at e-verify.gov' },
+              { id: 'stem_ead_received',  label: 'Received STEM OPT EAD card' },
+              { id: 'stem_6mo_report_1',  label: '6-month validation report submitted (1st)', note: 'I-983 submitted to DSO at 6-month mark' },
+              { id: 'stem_6mo_report_2',  label: '6-month validation report submitted (2nd)', note: 'I-983 submitted to DSO at 12-month mark' },
+              { id: 'stem_6mo_report_3',  label: '6-month validation report submitted (3rd)', note: 'I-983 submitted to DSO at 18-month mark' },
+              { id: 'stem_6mo_report_4',  label: '6-month validation report submitted (4th)', note: 'I-983 submitted to DSO at 24-month mark' },
+              { id: 'stem_employer_change', label: 'Reported all employer/address changes to DSO within 10 days' },
+            ]} />
+          )}
+
           {isFuture && (
             <div className={styles.detailSection}>
               <div className={styles.detailTitle}>STEM OPT requirements</div>
@@ -324,8 +412,9 @@ function CPTStage({ data, isActive, onExpand, expanded }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────
-export default function JourneyPage({ visaData }) {
+export default function JourneyPage({ visaData, user }) {
   const [expanded, setExpanded] = useState({ opt: true, stem: true, cpt: true })
+  const [checks, toggleCheck] = useChecklist(user?.id || 'guest')
   const toggle = key => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
   const visaType = visaData?.visa_type
@@ -377,17 +466,17 @@ export default function JourneyPage({ visaData }) {
 
         {isOPT && (
           <>
-            <OPTStage data={visaData} isActive={true} onExpand={() => toggle('opt')} expanded={expanded.opt} />
+            <OPTStage data={visaData} isActive={true} onExpand={() => toggle('opt')} expanded={expanded.opt} checks={checks} toggle={toggleCheck} />
             <div className={styles.stageArrow}>↓ Next step</div>
-            <STEMStage optData={visaData} stemData={null} optResult={optResult} isActive={false} isFuture={true} onExpand={() => toggle('stem')} expanded={expanded.stem} />
+            <STEMStage optData={visaData} stemData={null} optResult={optResult} isActive={false} isFuture={true} onExpand={() => toggle('stem')} expanded={expanded.stem} checks={checks} toggle={toggleCheck} />
           </>
         )}
 
         {isSTEM && (
           <>
-            <OPTStage data={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end, employment_periods: visaData.opt_periods || [] }} isActive={false} onExpand={() => toggle('opt')} expanded={expanded.opt} />
+            <OPTStage data={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end, employment_periods: visaData.opt_periods || [] }} isActive={false} onExpand={() => toggle('opt')} expanded={expanded.opt} checks={checks} toggle={toggleCheck} />
             <div className={styles.stageArrow}>↓ Current</div>
-            <STEMStage optData={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end }} stemData={visaData} optResult={optResult} isActive={true} isFuture={false} onExpand={() => toggle('stem')} expanded={expanded.stem} />
+            <STEMStage optData={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end }} stemData={visaData} optResult={optResult} isActive={true} isFuture={false} onExpand={() => toggle('stem')} expanded={expanded.stem} checks={checks} toggle={toggleCheck} />
           </>
         )}
       </div>

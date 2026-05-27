@@ -144,7 +144,7 @@ function AppInner() {
       </header>
 
       <main className={styles.main}>
-        {page === 'journey'     && <JourneyPage visaData={visaData || JSON.parse(localStorage.getItem(`visaguard_data_${user?.id}`) || 'null')} />}
+        {page === 'journey'     && <JourneyPage visaData={visaData || JSON.parse(localStorage.getItem(`visaguard_data_${user?.id}`) || 'null')} user={user} />}
         {page === 'tracker'     && <TrackerPage initialData={visaData} />}
         {page === 'eligibility' && <EligibilityPage />}
         {page === 'chat'        && <ChatPage visaData={visaData} />}
