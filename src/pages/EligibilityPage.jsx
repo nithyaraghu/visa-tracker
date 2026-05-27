@@ -9,6 +9,21 @@ const TABS = [
   { id: 'cpt',  label: 'CPT Eligibility'      },
 ]
 
+function addDaysToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
+function addMonthsToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + n)
+  return d.toISOString().split('T')[0]
+}
+
+import { calcStemDates } from '../utils/stemDates.js'
+
 function fmtDate(d) {
   if (!d) return '—'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -161,9 +176,23 @@ function OPTTab() {
 // ── STEM OPT Eligibility ──────────────────────────────────────────
 function STEMTab() {
   const [optEnd,      setOptEnd]      = useState('')
+  const [stemStartStr, setStemStartStr] = useState('')
+  const [stemEndStr,   setStemEndStr]   = useState('')
   const [hasStemDeg,  setHasStemDeg]  = useState(null)
   const [eVerify,     setEVerify]     = useState(null)
   const [calculated,  setCalculated]  = useState(false)
+
+  function handleOptEndChange(val) {
+    setOptEnd(val)
+    if (val) {
+      const { stemStart, stemEnd } = calcStemDates(val)
+      setStemStartStr(stemStart)
+      setStemEndStr(stemEnd)
+    } else {
+      setStemStartStr('')
+      setStemEndStr('')
+    }
+  }
 
   const result = useMemo(() => {
     if (!optEnd || !calculated) return null
@@ -192,8 +221,26 @@ function STEMTab() {
         <div className={styles.field}>
           <label className={styles.label}>OPT end date (EAD expiry)</label>
           <input type="date" className={styles.input}
-            value={optEnd} onChange={e => setOptEnd(e.target.value)} />
+            value={optEnd} onChange={e => handleOptEndChange(e.target.value)} />
         </div>
+
+        {stemStartStr && (
+          <div className={styles.field}>
+            <div style={{
+              background: 'var(--success-soft)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              borderRadius: 8,
+              padding: '10px 14px',
+              fontSize: '0.82rem',
+              color: 'var(--success)',
+            }}>
+              ✓ STEM OPT start: <strong>{stemStartStr}</strong> → end: <strong>{stemEndStr}</strong>
+              <div style={{fontSize:'0.75rem', color:'var(--text-muted)', marginTop:3}}>
+                Auto-calculated · You can apply by {addDaysToStr(optEnd, -90)}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className={styles.field}>
           <label className={styles.label}>Do you have a STEM-designated degree?</label>

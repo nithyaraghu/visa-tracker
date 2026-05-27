@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
 import styles from './TrackerPage.module.css'
 import { supabase } from '../auth/supabase.js'
+import { calcStemDates, calcOptEnd } from '../utils/stemDates.js'
 
 const STATUS_META = {
   ok:       { color: 'var(--success)', bg: 'var(--success-soft)', label: 'Within limits'    },
@@ -108,6 +109,20 @@ function calcOptCarryOver(optAuthStartStr, optAuthEndStr, optPeriods) {
   return Math.max(0, gapDays)
 }
 
+// Date auto-calc helpers
+function addDaysToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
+function addMonthsToStr(dateStr, n) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + n)
+  return d.toISOString().split('T')[0]
+}
+
 export default function TrackerPage({ initialData }) {
   // Seed state from onboarding data if available
   const initPeriods = initialData?.employment_periods?.length
@@ -125,6 +140,36 @@ export default function TrackerPage({ initialData }) {
   const [calculated, setCalculated] = useState(!!(initialData?.auth_start))
   const [optAuthStart, setOptAuthStart] = useState(initialData?.opt_auth_start || '')
   const [optAuthEnd, setOptAuthEnd]     = useState(initialData?.opt_auth_end || '')
+
+  // Auto-calculate OPT end when OPT/auth start is entered
+  function handleAuthStartChange(val) {
+    setAuthStart(val)
+    if (visaType === 'opt' && val && !authEnd) {
+      setAuthEnd(calcOptEnd(val))
+    }
+  }
+
+  // Auto-calculate OPT end when OPT authorization start (for STEM carry-over) changes
+  function handleOptAuthStartChange(val) {
+    setOptAuthStart(val)
+    if (visaType === 'stem' && val && !optAuthEnd) {
+      const optEnd = calcOptEnd(val)
+      setOptAuthEnd(optEnd)
+      const { stemStart, stemEnd } = calcStemDates(optEnd)
+      if (!authStart) setAuthStart(stemStart)
+      if (!authEnd)   setAuthEnd(stemEnd)
+    }
+  }
+
+  // Auto-calculate STEM dates when OPT end date changes
+  function handleOptEndChange(val) {
+    setOptAuthEnd(val)
+    if (visaType === 'stem' && val) {
+      const { stemStart, stemEnd } = calcStemDates(val)
+      if (!authStart) setAuthStart(stemStart)
+      if (!authEnd)   setAuthEnd(stemEnd)
+    }
+  }
   const [optPeriods, setOptPeriods]     = useState(initOptPeriods)
 
   const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
@@ -249,6 +294,11 @@ export default function TrackerPage({ initialData }) {
           <div className={styles.row2}>
             <div>
               <label className={styles.label}>{visaType === 'stem' ? 'STEM OPT start' : 'Authorization start'}</label>
+              {visaType === 'stem' && authStart && (
+                <p style={{fontSize:'0.75rem',color:'var(--success)',marginBottom:4}}>
+                  ✓ Auto-calculated from OPT end date
+                </p>
+              )}
               <input type="date" className={styles.input} value={authStart}
                 onChange={e => { setAuthStart(e.target.value); setCalculated(false) }} />
             </div>
@@ -303,26 +353,55 @@ export default function TrackerPage({ initialData }) {
                 <span style={{ color: meta.color, fontWeight: 500 }}>{meta.label}</span>
                 {result.limit && (
                   <span className={styles.statusDetail} style={{ color: meta.color }}>
-                    — {result.countable} / {result.limit} days used
-                    {result.carryOver > 0 && ` (incl. ${result.carryOver} from OPT)`}
+                    {visaType === 'stem'
+                      ? `— ${result.stemTotal} / ${result.limit} days used (${result.carryOver} OPT + ${result.unemployedDays} STEM)`
+                      : `— ${result.countable} / ${result.limit} days used`}
                   </span>
                 )}
               </div>
+
+              {/* STEM: show cumulative breakdown prominently */}
+              {visaType === 'stem' && (
+                <div style={{
+                  background: 'var(--surface-2)',
+                  border: `1px solid ${meta.color}40`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px 16px',
+                  marginBottom: '1rem',
+                }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                    150-Day Cumulative Breakdown (OPT + STEM OPT)
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.9rem' }}>
+                    <span style={{ color: 'var(--warning)', fontWeight: 600 }}>{result.carryOver} days</span>
+                    <span style={{ color: 'var(--text-muted)' }}>OPT carry-over</span>
+                    <span style={{ color: 'var(--text-muted)' }}>+</span>
+                    <span style={{ color: meta.color, fontWeight: 600 }}>{result.unemployedDays} days</span>
+                    <span style={{ color: 'var(--text-muted)' }}>STEM OPT</span>
+                    <span style={{ color: 'var(--text-muted)' }}>=</span>
+                    <span style={{ color: meta.color, fontWeight: 700, fontSize: '1rem' }}>{result.stemTotal} / 150 days</span>
+                    <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>
+                      ({Math.max(0, 150 - result.stemTotal)} remaining)
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className={styles.metrics}>
                 {[
                   { label: 'Total auth days',  val: result.totalDays,    color: 'var(--text-primary)' },
                   { label: 'Employed days',     val: result.employedDays, color: 'var(--success)'      },
-                  { label: visaType === 'stem' ? 'Unemployed (STEM only)' : 'Unemployed days',
-                    val: result.unemployedDays, color: meta.color },
-                  ...(visaType === 'stem' && result.carryOver > 0 ? [
-                    { label: 'Carried over (OPT)', val: result.carryOver, color: 'var(--warning)' },
-                    { label: 'Cumulative total',   val: result.stemTotal, color: meta.color       },
-                  ] : []),
+                  ...(visaType === 'stem' ? [
+                    { label: 'OPT unemployment (carried over)', val: result.carryOver,      color: 'var(--warning)' },
+                    { label: 'STEM OPT unemployment',           val: result.unemployedDays, color: meta.color       },
+                    { label: 'Cumulative total (OPT + STEM)',   val: result.stemTotal,      color: meta.color       },
+                  ] : [
+                    { label: 'Unemployed days', val: result.unemployedDays, color: meta.color },
+                  ]),
                   ...(result.limit ? [{
                     label: 'Days remaining',
                     val: Math.max(0, result.limit - result.countable),
-                    color: meta.color
+                    color: Math.max(0, result.limit - result.countable) <= 10 ? 'var(--danger)' : meta.color
                   }] : [])
                 ].map(m => (
                   <div key={m.label} className={styles.metricCard}>
@@ -331,16 +410,6 @@ export default function TrackerPage({ initialData }) {
                   </div>
                 ))}
               </div>
-
-              {visaType === 'stem' && (
-                <div style={{
-                  fontSize: '0.8rem', color: 'var(--text-muted)',
-                  background: 'var(--surface-2)', borderRadius: 'var(--radius-md)',
-                  padding: '8px 12px', marginBottom: '1rem', border: '1px solid var(--border)'
-                }}>
-                  📋 {result.carryOver} days (OPT) + {result.unemployedDays} days (STEM OPT) = <strong style={{ color: meta.color }}>{result.stemTotal} / 150 cumulative days</strong>
-                </div>
-              )}
 
               {(result.limit || result.thresholds) && (() => {
                 const barLimit   = result.limit || result.thresholds?.critical || 90
