@@ -1,77 +1,106 @@
 // src/pages/JourneyPage.jsx
-// Unified visa journey dashboard — shows full OPT → STEM OPT timeline
 import { useState, useMemo } from 'react'
-import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
+import { parseLocalDate, calcUnemployment } from '../utils/visaCalc.js'
 import styles from './JourneyPage.module.css'
 
-// ── Date helpers ──────────────────────────────────────────────────
-function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+function addDays(d, n)   { const r = new Date(d); r.setDate(r.getDate() + n); return r }
 function addMonths(d, n) { const r = new Date(d); r.setMonth(r.getMonth() + n); return r }
-function fmtDate(d) {
-  if (!d) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-function daysFromNow(d) {
-  const today = new Date(); today.setHours(0,0,0,0)
-  return Math.round((d - today) / 86400000)
+function fmtDate(d)      { if (!d) return '—'; return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+function daysFromNow(d)  { const t = new Date(); t.setHours(0,0,0,0); return Math.round((d - t) / 86400000) }
+
+const STATUS_COLOR = { ok: 'var(--success)', warn: 'var(--warning)', urgent: 'var(--warning)', critical: 'var(--danger)', over: 'var(--danger)' }
+const STATUS_LABEL = { ok: 'Within limits', warn: 'Warning', urgent: 'Urgent', critical: 'Critical', over: 'Exceeded' }
+
+// ── Plain-English status summary ─────────────────────────────────
+function StatusSummary({ status, daysUsed, limit, daysRemaining, visaType }) {
+  const messages = {
+    ok:       `You have used ${daysUsed} of ${limit} days. You have ${daysRemaining} days remaining — you're in good standing.`,
+    warn:     `You have used ${daysUsed} of ${limit} days. Only ${daysRemaining} days left — start your job search now.`,
+    urgent:   `You have used ${daysUsed} of ${limit} days. Only ${daysRemaining} days remaining — secure employment immediately.`,
+    critical: `You have used ${daysUsed} of ${limit} days. Only ${daysRemaining} days left — this is critical, contact your DSO today.`,
+    over:     `You have exceeded your ${limit}-day limit by ${daysUsed - limit} days. Contact your DSO immediately.`,
+  }
+  return (
+    <div className={styles.summaryBox} style={{ borderColor: `${STATUS_COLOR[status]}40`, background: `${STATUS_COLOR[status]}08` }}>
+      <span className={styles.summaryDot} style={{ background: STATUS_COLOR[status] }} />
+      <p className={styles.summaryText}>{messages[status]}</p>
+    </div>
+  )
 }
 
-const STATUS_COLOR = {
-  ok: 'var(--success)', warn: 'var(--warning)', urgent: 'var(--warning)',
-  critical: 'var(--danger)', over: 'var(--danger)'
-}
-const STATUS_LABEL = {
-  ok: 'Within limits', warn: 'Watch closely', urgent: 'Approaching limit',
-  critical: 'Critical', over: 'Limit exceeded'
+// ── What to do next ──────────────────────────────────────────────
+function NextSteps({ steps }) {
+  if (!steps?.length) return null
+  return (
+    <div className={styles.nextSteps}>
+      <div className={styles.nextTitle}>What to do next</div>
+      {steps.map((s, i) => (
+        <div key={i} className={styles.nextRow} style={{ borderColor: `${s.color}30` }}>
+          <span className={styles.nextIcon} style={{ background: `${s.color}15`, color: s.color }}>{s.icon}</span>
+          <div>
+            <div className={styles.nextLabel}>{s.label}</div>
+            {s.note && <div className={styles.nextNote}>{s.note}</div>}
+          </div>
+          {s.deadline && <span className={styles.nextDeadline} style={{ color: s.color }}>{s.deadline}</span>}
+        </div>
+      ))}
+    </div>
+  )
 }
 
-// ── OPT stage ────────────────────────────────────────────────────
-function OPTStage({ data, isActive, onExpand, expanded }) {
+// ── OPT Stage ────────────────────────────────────────────────────
+function OPTStage({ data, isActive, isFuture, onExpand, expanded }) {
   const result = useMemo(() => {
     if (!data?.auth_start) return null
-    const periods = (data.employment_periods || [])
-      .filter(p => p.start)
+    const periods = (data.employment_periods || []).filter(p => p.start)
       .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
-    return calcUnemployment({
-      authStart: parseLocalDate(data.auth_start),
-      authEnd:   parseLocalDate(data.auth_end),
-      employmentPeriods: periods,
-      visaType: 'opt'
-    })
+    try { return calcUnemployment({ authStart: parseLocalDate(data.auth_start), authEnd: parseLocalDate(data.auth_end), employmentPeriods: periods, visaType: 'opt' }) }
+    catch { return null }
   }, [data])
 
-  const authEnd   = data?.auth_end   ? parseLocalDate(data.auth_end)   : null
-  const applyBy   = authEnd ? addDays(authEnd, -90) : null
+  const authEnd     = data?.auth_end ? parseLocalDate(data.auth_end) : null
+  const applyBy     = authEnd ? addDays(authEnd, -90) : null
   const daysToApply = applyBy ? daysFromNow(applyBy) : null
+  const daysUsed    = result ? (result.countable ?? result.unemployedDays) : 0
+  const remaining   = result ? Math.max(0, result.limit - daysUsed) : 90
+  const pct         = result?.limit ? Math.min(100, Math.round(daysUsed / result.limit * 100)) : 0
+  const color       = result ? STATUS_COLOR[result.status] : 'var(--text-muted)'
 
-  const pct = result?.limit ? Math.min(100, Math.round((result.countable ?? result.unemployedDays) / result.limit * 100)) : 0
-  const color = result ? STATUS_COLOR[result.status] : 'var(--success)'
+  const nextSteps = []
+  if (applyBy && daysToApply !== null) {
+    if (daysToApply > 0 && daysToApply <= 120)
+      nextSteps.push({ icon: '📅', label: 'Apply for STEM OPT extension', note: 'File I-765 with DSO recommendation letter — 90 days before OPT ends', deadline: `by ${fmtDate(applyBy)}`, color: daysToApply <= 30 ? 'var(--danger)' : 'var(--warning)' })
+    else if (daysToApply <= 0)
+      nextSteps.push({ icon: '⚠', label: 'STEM OPT deadline has passed', note: 'Contact your DSO immediately to discuss your options', color: 'var(--danger)' })
+  }
+  if (result?.status === 'warn' || result?.status === 'urgent')
+    nextSteps.push({ icon: '💼', label: 'Find employment soon', note: `Only ${remaining} unemployment days remaining on OPT`, color: 'var(--warning)' })
 
   return (
-    <div className={`${styles.stage} ${isActive ? styles.stageActive : ''}`}>
+    <div className={`${styles.stage} ${isActive ? styles.stageActive : ''} ${isFuture ? styles.stageFuture : ''}`}>
       <div className={styles.stageHeader} onClick={onExpand}>
         <div className={styles.stageLeft}>
-          <div className={styles.stageDot} style={{ background: isActive ? color : 'var(--surface-3)', borderColor: isActive ? color : 'var(--border-md)' }}>
-            {isActive ? '●' : '○'}
+          <div className={styles.stageDot} style={{ background: isActive ? color : isFuture ? 'transparent' : 'var(--surface-3)', borderColor: isActive ? color : 'var(--border-md)' }}>
+            {isActive ? '●' : isFuture ? '◎' : '○'}
           </div>
           <div>
-            <div className={styles.stageTitle}>F-1 OPT <span className={styles.stagePeriod}>{data?.auth_start ? `${fmtDate(parseLocalDate(data.auth_start))} → ${fmtDate(authEnd)}` : ''}</span></div>
-            {result && (
-              <div className={styles.stageSummary} style={{ color }}>
-                {result.countable ?? result.unemployedDays} / {result.limit} days used · {Math.max(0, result.limit - (result.countable ?? result.unemployedDays))} remaining
-              </div>
-            )}
+            <div className={styles.stageTitle}>
+              F-1 OPT
+              {data?.auth_start && <span className={styles.stagePeriod}> {fmtDate(parseLocalDate(data.auth_start))} → {fmtDate(authEnd)}</span>}
+            </div>
+            <div className={styles.stageSummary} style={{ color: isFuture ? 'var(--text-muted)' : color }}>
+              {isActive && result ? `${daysUsed} / ${result.limit} days used · ${remaining} remaining` : isFuture ? '12-month work authorization' : 'Completed'}
+            </div>
           </div>
         </div>
         <div className={styles.stageRight}>
-          <span className={styles.stageBadge} style={{ color, background: `${color}18` }}>
-            {result ? STATUS_LABEL[result.status] : 'Active'}
+          <span className={styles.stageBadge} style={{ color: isFuture ? 'var(--accent)' : color, background: isFuture ? 'var(--accent-glow)' : `${color}18` }}>
+            {isActive && result ? STATUS_LABEL[result.status] : isFuture ? 'Upcoming' : 'Done'}
           </span>
           <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
-      {/* Progress bar always visible when active */}
       {isActive && result?.limit && (
         <div className={styles.progressWrap}>
           <div className={styles.progressBar}>
@@ -81,30 +110,29 @@ function OPTStage({ data, isActive, onExpand, expanded }) {
         </div>
       )}
 
-      {/* Expanded details */}
       {expanded && (
         <div className={styles.stageBody}>
+          {isActive && result && (
+            <StatusSummary status={result.status} daysUsed={daysUsed} limit={result.limit} daysRemaining={remaining} />
+          )}
+
           {result?.gaps?.length > 0 && (
             <div className={styles.detailSection}>
               <div className={styles.detailTitle}>Unemployment gaps</div>
               {result.gaps.map((g, i) => (
                 <div key={i} className={styles.gapRow}>
-                  <span>{fmtDate(new Date(g.start))} → {fmtDate(new Date(g.end))}</span>
+                  <span className={styles.gapDates}>{fmtDate(new Date(g.start))} → {fmtDate(new Date(g.end))}</span>
                   <span className={styles.gapBadge}>{g.days} days</span>
                 </div>
               ))}
             </div>
           )}
 
-          {applyBy && (
-            <div className={styles.actionBox}>
-              <div className={styles.actionIcon}>📅</div>
-              <div>
-                <div className={styles.actionTitle}>Apply for STEM OPT by {fmtDate(applyBy)}</div>
-                <div className={styles.actionSub}>
-                  {daysToApply > 0 ? `${daysToApply} days away — apply 90 days before OPT expires` : daysToApply === 0 ? 'Today is the deadline!' : `${Math.abs(daysToApply)} days past deadline`}
-                </div>
-              </div>
+          <NextSteps steps={nextSteps} />
+
+          {isFuture && (
+            <div className={styles.infoBox}>
+              ℹ OPT gives you 12 months of work authorization after graduation. You have a 90-day cumulative unemployment limit — days count 7 days/week including weekends.
             </div>
           )}
         </div>
@@ -113,76 +141,67 @@ function OPTStage({ data, isActive, onExpand, expanded }) {
   )
 }
 
-// ── STEM OPT stage ────────────────────────────────────────────────
+// ── STEM OPT Stage ───────────────────────────────────────────────
 function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand, expanded }) {
-  // Calculate OPT carry-over
-  const optCarryOver = useMemo(() => {
-    if (!optResult) return 0
-    return optResult.unemployedDays || 0
-  }, [optResult])
+  const optCarryOver = useMemo(() => optResult?.unemployedDays || 0, [optResult])
 
   const stemResult = useMemo(() => {
     if (!stemData?.auth_start) return null
-    const periods = (stemData.employment_periods || [])
-      .filter(p => p.start)
+    const periods = (stemData.employment_periods || []).filter(p => p.start)
       .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
-    return calcUnemployment({
-      authStart: parseLocalDate(stemData.auth_start),
-      authEnd:   parseLocalDate(stemData.auth_end),
-      employmentPeriods: periods,
-      visaType: 'stem',
-      optUnemployedDays: optCarryOver
-    })
+    try { return calcUnemployment({ authStart: parseLocalDate(stemData.auth_start), authEnd: parseLocalDate(stemData.auth_end), employmentPeriods: periods, visaType: 'stem', optUnemployedDays: optCarryOver }) }
+    catch { return null }
   }, [stemData, optCarryOver])
 
-  // Eligibility from OPT data
-  const optEnd    = optData?.auth_end ? parseLocalDate(optData.auth_end) : null
-  const stemStart = optEnd ? addDays(optEnd, 1) : null  // STEM starts day AFTER OPT ends
-  const stemEnd   = stemStart ? addDays(addMonths(stemStart, 24), -1) : null  // EAD expiry = day before 2yr anniversary
-  const applyBy   = optEnd ? addDays(optEnd, -90) : null
+  const optEnd      = optData?.auth_end ? parseLocalDate(optData.auth_end) : null
+  const stemStart   = optEnd ? addDays(optEnd, 1) : null
+  const stemEnd     = stemStart ? addDays(addMonths(stemStart, 24), -1) : null
+  const applyBy     = optEnd ? addDays(optEnd, -90) : null
   const daysToApply = applyBy ? daysFromNow(applyBy) : null
+  const cumulative  = (stemResult?.unemployedDays || 0) + optCarryOver
+  const remaining   = Math.max(0, 150 - cumulative)
+  const pct         = Math.min(100, Math.round(cumulative / 150 * 100))
+  const color       = stemResult ? STATUS_COLOR[stemResult.status] : isFuture ? 'var(--text-muted)' : 'var(--accent)'
 
-  const cumulative = (stemResult?.unemployedDays || 0) + optCarryOver
-  const remaining  = Math.max(0, 150 - cumulative)
-  const pct        = Math.min(100, Math.round(cumulative / 150 * 100))
-  const color      = stemResult ? STATUS_COLOR[stemResult.status] : isFuture ? 'var(--text-muted)' : 'var(--accent)'
+  const nextSteps = []
+  if (isActive) {
+    if (stemResult?.status === 'warn' || stemResult?.status === 'urgent')
+      nextSteps.push({ icon: '💼', label: 'Secure employment immediately', note: `Only ${remaining} days remaining out of 150 cumulative`, color: 'var(--warning)' })
+    if (stemResult?.status === 'critical' || stemResult?.status === 'over')
+      nextSteps.push({ icon: '🚨', label: 'Contact your DSO today', note: 'You are near or over the 150-day cumulative limit', color: 'var(--danger)' })
+    nextSteps.push({ icon: '📋', label: 'Submit I-983 validation report every 6 months', note: 'Required for STEM OPT compliance', color: 'var(--text-muted)' })
+    nextSteps.push({ icon: '📍', label: 'Report address or employer changes within 10 days', note: 'Required by USCIS', color: 'var(--text-muted)' })
+  }
+  if (isFuture && applyBy) {
+    if (daysToApply > 0)
+      nextSteps.push({ icon: '📅', label: 'File STEM OPT application', note: 'I-765 + DSO recommendation + I-983 Training Plan', deadline: `by ${fmtDate(applyBy)}`, color: daysToApply <= 30 ? 'var(--danger)' : 'var(--warning)' })
+    nextSteps.push({ icon: '✔', label: 'Confirm employer is E-Verify registered', note: 'Required — verify at e-verify.gov before accepting any job', color: 'var(--accent)' })
+  }
 
   return (
     <div className={`${styles.stage} ${isActive ? styles.stageActive : ''} ${isFuture ? styles.stageFuture : ''}`}>
       <div className={styles.stageHeader} onClick={onExpand}>
         <div className={styles.stageLeft}>
-          <div className={styles.stageDot} style={{
-            background: isActive ? color : isFuture ? 'transparent' : 'var(--surface-3)',
-            borderColor: isActive ? color : isFuture ? 'var(--border-md)' : 'var(--border-md)'
-          }}>
+          <div className={styles.stageDot} style={{ background: isActive ? color : isFuture ? 'transparent' : 'var(--surface-3)', borderColor: isActive ? color : 'var(--border-md)' }}>
             {isActive ? '●' : isFuture ? '◎' : '○'}
           </div>
           <div>
             <div className={styles.stageTitle}>
               F-1 STEM OPT
-              <span className={styles.stagePeriod}>
-                {stemStart ? ` ${fmtDate(stemStart)} → ${fmtDate(stemEnd)}` : ' · 24-month extension (starts day after OPT ends)'}
-              </span>
+              <span className={styles.stagePeriod}>{stemStart ? ` ${fmtDate(stemStart)} → ${fmtDate(stemEnd)}` : ' · 24-month extension'}</span>
             </div>
             <div className={styles.stageSummary} style={{ color: isFuture ? 'var(--text-muted)' : color }}>
               {isActive && stemResult
                 ? `${cumulative} / 150 cumulative days used · ${remaining} remaining`
-                : isFuture
-                ? applyBy
-                  ? daysToApply > 0
-                    ? `Apply by ${fmtDate(applyBy)} — ${daysToApply} days away`
-                    : 'Application window open now'
-                  : 'Follows your OPT period'
-                : 'Completed'}
+                : isFuture && applyBy
+                  ? daysToApply > 0 ? `Apply by ${fmtDate(applyBy)} — ${daysToApply} days away` : 'Apply now — deadline passed'
+                  : '24-month work authorization extension'}
             </div>
           </div>
         </div>
         <div className={styles.stageRight}>
-          <span className={styles.stageBadge} style={{
-            color: isFuture ? 'var(--accent)' : color,
-            background: isFuture ? 'var(--accent-glow)' : `${color}18`
-          }}>
-            {isActive ? STATUS_LABEL[stemResult?.status || 'ok'] : isFuture ? 'Plan ahead' : 'Upcoming'}
+          <span className={styles.stageBadge} style={{ color: isFuture ? 'var(--accent)' : color, background: isFuture ? 'var(--accent-glow)' : `${color}18` }}>
+            {isActive && stemResult ? STATUS_LABEL[stemResult.status] : isFuture ? 'Plan ahead' : 'Upcoming'}
           </span>
           <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
         </div>
@@ -191,15 +210,9 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
       {isActive && stemResult && (
         <div className={styles.progressWrap}>
           <div className={styles.progressBar}>
-            {/* OPT carry-over segment */}
-            {optCarryOver > 0 && (
-              <div className={styles.progressSegment} style={{
-                width: `${Math.min(100, optCarryOver / 150 * 100)}%`,
-                background: 'var(--warning)'
-              }} />
-            )}
+            {optCarryOver > 0 && <div className={styles.progressSegment} style={{ width: `${Math.min(100, optCarryOver / 150 * 100)}%`, background: 'var(--warning)' }} />}
             <div className={styles.progressFill} style={{
-              width: `${Math.min(100 - (optCarryOver / 150 * 100), (stemResult.unemployedDays / 150) * 100)}%`,
+              width: `${Math.min(100 - (optCarryOver / 150 * 100), stemResult.unemployedDays / 150 * 100)}%`,
               background: color,
               marginLeft: `${Math.min(100, optCarryOver / 150 * 100)}%`
             }} />
@@ -210,39 +223,56 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
 
       {expanded && (
         <div className={styles.stageBody}>
-          {/* Eligibility checklist */}
-          <div className={styles.detailSection}>
-            <div className={styles.detailTitle}>STEM OPT requirements</div>
-            {[
-              { ok: true,  text: 'Valid F-1 OPT status',          note: 'Apply before OPT expires' },
-              { ok: null,  text: 'STEM-designated degree',         note: 'Verify CIP code with DSO' },
-              { ok: null,  text: 'E-Verify registered employer',   note: 'Check at e-verify.gov' },
-              { ok: true,  text: 'Form I-983 Training Plan',       note: 'Must be signed by employer' },
-              { ok: true,  text: 'Apply 90 days before OPT ends',  note: applyBy ? `Deadline: ${fmtDate(applyBy)}` : '' },
-            ].map((r, i) => (
-              <div key={i} className={`${styles.reqRow} ${r.ok === true ? styles.reqOk : r.ok === false ? styles.reqFail : styles.reqCheck}`}>
-                <span>{r.ok === true ? '✓' : r.ok === false ? '✗' : '?'}</span>
-                <div>
-                  <div className={styles.reqText}>{r.text}</div>
-                  {r.note && <div className={styles.reqNote}>{r.note}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
+          {isActive && stemResult && (
+            <StatusSummary status={stemResult.status} daysUsed={cumulative} limit={150} daysRemaining={remaining} />
+          )}
 
-          {optCarryOver > 0 && (
-            <div className={styles.infoBox}>
-              📋 {optCarryOver} OPT unemployment days will carry over → {150 - optCarryOver} days available in STEM OPT
+          {isActive && optCarryOver > 0 && (
+            <div className={styles.carryOverBox}>
+              <div className={styles.carryOverRow}>
+                <span style={{ color: 'var(--warning)' }}>⬆ {optCarryOver} days carried over from OPT</span>
+                <span style={{ color: 'var(--text-muted)' }}>+</span>
+                <span style={{ color: color }}>{stemResult?.unemployedDays || 0} days in STEM OPT</span>
+                <span style={{ color: 'var(--text-muted)' }}>=</span>
+                <span style={{ fontWeight: 600, color }}>{cumulative} / 150 total</span>
+              </div>
+              <div className={styles.carryOverLegend}>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: 'var(--warning)', marginRight: 4 }} />OPT carry-over ({optCarryOver}d)</span>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: color, marginRight: 4 }} />STEM OPT ({stemResult?.unemployedDays || 0}d)</span>
+                <span>{remaining} days remaining</span>
+              </div>
             </div>
           )}
 
-          {applyBy && daysToApply > 0 && daysToApply <= 90 && (
-            <div className={styles.actionBox} style={{ borderColor: 'var(--warning)' }}>
-              <div className={styles.actionIcon}>⚡</div>
-              <div>
-                <div className={styles.actionTitle}>Apply soon — {daysToApply} days to deadline</div>
-                <div className={styles.actionSub}>File Form I-765 with your DSO recommendation letter</div>
-              </div>
+          {isActive && stemResult?.gaps?.length > 0 && (
+            <div className={styles.detailSection}>
+              <div className={styles.detailTitle}>STEM OPT gap breakdown</div>
+              {stemResult.gaps.map((g, i) => (
+                <div key={i} className={styles.gapRow}>
+                  <span className={styles.gapDates}>{fmtDate(new Date(g.start))} → {fmtDate(new Date(g.end))}</span>
+                  <span className={styles.gapBadge}>{g.days} days</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <NextSteps steps={nextSteps} />
+
+          {isFuture && (
+            <div className={styles.detailSection}>
+              <div className={styles.detailTitle}>STEM OPT requirements</div>
+              {[
+                { ok: true,  text: 'Valid F-1 OPT status when you apply' },
+                { ok: null,  text: 'STEM-designated degree — verify CIP code with your DSO' },
+                { ok: null,  text: 'Employer must be E-Verify registered (e-verify.gov)' },
+                { ok: true,  text: 'Form I-983 Training Plan signed by employer' },
+                { ok: true,  text: 'Apply at least 90 days before OPT expires' },
+              ].map((r, i) => (
+                <div key={i} className={`${styles.reqRow} ${r.ok === true ? styles.reqOk : styles.reqCheck}`}>
+                  <span>{r.ok === true ? '✓' : '?'}</span>
+                  <div className={styles.reqText}>{r.text}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -251,33 +281,27 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
   )
 }
 
-// ── CPT stage ────────────────────────────────────────────────────
+// ── CPT Stage ────────────────────────────────────────────────────
 function CPTStage({ data, isActive, onExpand, expanded }) {
-  const months = data?.enrolled_months || 0
+  const months  = data?.enrolled_months || 0
   const eligible = months >= 9
 
   return (
     <div className={`${styles.stage} ${isActive ? styles.stageActive : ''}`}>
       <div className={styles.stageHeader} onClick={onExpand}>
         <div className={styles.stageLeft}>
-          <div className={styles.stageDot} style={{
-            background: isActive ? 'var(--success)' : 'var(--surface-3)',
-            borderColor: isActive ? 'var(--success)' : 'var(--border-md)'
-          }}>
+          <div className={styles.stageDot} style={{ background: isActive ? 'var(--success)' : 'var(--surface-3)', borderColor: isActive ? 'var(--success)' : 'var(--border-md)' }}>
             {isActive ? '●' : '○'}
           </div>
           <div>
-            <div className={styles.stageTitle}>F-1 CPT <span className={styles.stagePeriod}>Curricular Practical Training</span></div>
+            <div className={styles.stageTitle}>F-1 CPT</div>
             <div className={styles.stageSummary} style={{ color: eligible ? 'var(--success)' : 'var(--warning)' }}>
-              {eligible ? '✓ Eligible — semester-based authorization' : '⚠ Check enrollment requirement'}
+              {eligible ? 'Eligible — semester-based authorization' : 'Check enrollment requirements'}
             </div>
           </div>
         </div>
         <div className={styles.stageRight}>
-          <span className={styles.stageBadge} style={{
-            color: eligible ? 'var(--success)' : 'var(--warning)',
-            background: eligible ? 'var(--success-soft)' : 'var(--warning-soft)'
-          }}>
+          <span className={styles.stageBadge} style={{ color: eligible ? 'var(--success)' : 'var(--warning)', background: eligible ? 'var(--success-soft)' : 'var(--warning-soft)' }}>
             {eligible ? 'Eligible' : 'Check requirements'}
           </span>
           <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
@@ -286,77 +310,49 @@ function CPTStage({ data, isActive, onExpand, expanded }) {
 
       {expanded && (
         <div className={styles.stageBody}>
-          <div className={styles.detailSection}>
-            <div className={styles.detailTitle}>CPT key facts</div>
-            {[
-              { ok: months >= 9, text: `Full-time enrollment ≥ 9 months (you have ${months})` },
-              { ok: true,        text: 'No unemployment day limit — authorization is semester-based' },
-              { ok: true,        text: 'DSO authorization required each semester on Form I-20' },
-              { ok: true,        text: 'Work must be integral part of established curriculum' },
-              { ok: months < 12, text: '⚠ 12+ months full-time CPT = OPT ineligible' },
-            ].map((r, i) => (
-              <div key={i} className={`${styles.reqRow} ${r.ok ? styles.reqOk : styles.reqCheck}`}>
-                <span>{r.ok ? '✓' : '⚠'}</span>
-                <div className={styles.reqText}>{r.text}</div>
-              </div>
-            ))}
+          <div className={styles.infoBox}>
+            ℹ CPT has no unemployment day limit. Authorization is semester-based — your DSO must authorize each semester on your I-20.
           </div>
+          <NextSteps steps={[
+            { icon: '📋', label: 'Get DSO authorization each semester', note: 'CPT is listed on your I-20 form', color: 'var(--accent)' },
+            { icon: '⚠', label: '12+ months full-time CPT = OPT ineligible', note: 'Track your CPT duration carefully', color: 'var(--warning)' },
+          ]} />
         </div>
       )}
     </div>
   )
 }
 
-// ── Main Journey Page ─────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────
 export default function JourneyPage({ visaData }) {
-  const [expanded, setExpanded] = useState({ opt: true, stem: false, cpt: true })
-
+  const [expanded, setExpanded] = useState({ opt: true, stem: true, cpt: true })
   const toggle = key => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
   const visaType = visaData?.visa_type
-  const isCPT    = visaType === 'cpt'
-  const isOPT    = visaType === 'opt'
-  const isSTEM   = visaType === 'stem'
+  const isCPT  = visaType === 'cpt'
+  const isOPT  = visaType === 'opt'
+  const isSTEM = visaType === 'stem'
 
-  // Calculate OPT result for carry-over into STEM
   const optResult = useMemo(() => {
-    // STEM users: calculate carry-over from opt_auth fields
     if (isSTEM) {
       if (!visaData?.opt_auth_start) return null
-      const periods = (visaData.opt_periods || [])
-        .filter(p => p.start)
+      const periods = (visaData.opt_periods || []).filter(p => p.start)
         .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
-      try {
-        return calcUnemployment({
-          authStart: parseLocalDate(visaData.opt_auth_start),
-          authEnd:   parseLocalDate(visaData.opt_auth_end),
-          employmentPeriods: periods,
-          visaType: 'opt'
-        })
-      } catch { return null }
+      try { return calcUnemployment({ authStart: parseLocalDate(visaData.opt_auth_start), authEnd: parseLocalDate(visaData.opt_auth_end), employmentPeriods: periods, visaType: 'opt' }) }
+      catch { return null }
     }
-    // OPT users: calculate from auth_start
     if (!visaData?.auth_start) return null
-    const periods = (visaData.employment_periods || [])
-      .filter(p => p.start)
+    const periods = (visaData.employment_periods || []).filter(p => p.start)
       .map(p => ({ start: parseLocalDate(p.start), end: parseLocalDate(p.end) || null }))
-    try {
-      return calcUnemployment({
-        authStart: parseLocalDate(visaData.auth_start),
-        authEnd:   parseLocalDate(visaData.auth_end),
-        employmentPeriods: periods,
-        visaType: 'opt'
-      })
-    } catch { return null }
+    try { return calcUnemployment({ authStart: parseLocalDate(visaData.auth_start), authEnd: parseLocalDate(visaData.auth_end), employmentPeriods: periods, visaType: 'opt' }) }
+    catch { return null }
   }, [visaData, isSTEM])
 
   if (!visaData || !visaData.visa_type) {
     return (
       <div className={styles.empty}>
         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📊</div>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          No visa data yet. Go to <strong>Status Tracker</strong> to enter your details.
-        </p>
+        <p style={{ color: 'var(--text-secondary)' }}>No visa data yet. Go to <strong>Status Tracker</strong> to enter your details.</p>
       </div>
     )
   }
@@ -365,83 +361,38 @@ export default function JourneyPage({ visaData }) {
     <div className={styles.page}>
       <div className={styles.pageHeader}>
         <h1>Your Visa Journey</h1>
-        <p className={styles.subtitle}>
-          Full immigration timeline — current status, next steps, and future planning
-        </p>
+        <p className={styles.subtitle}>Your full immigration timeline — current status and what to do next</p>
       </div>
 
       <div className={styles.timeline}>
-        {/* Connector line */}
         <div className={styles.connector} />
 
-        {/* CPT path */}
         {isCPT && (
           <>
-            <CPTStage
-              data={visaData}
-              isActive={true}
-              onExpand={() => toggle('cpt')}
-              expanded={expanded.cpt}
-            />
+            <CPTStage data={visaData} isActive={true} onExpand={() => toggle('cpt')} expanded={expanded.cpt} />
             <div className={styles.stageArrow}>↓ After CPT</div>
-            <OPTStage
-              data={{ auth_start: null }}
-              isActive={false}
-              isFuture={true}
-              onExpand={() => toggle('opt')}
-              expanded={expanded.opt}
-            />
+            <OPTStage data={{ auth_start: null }} isActive={false} isFuture={true} onExpand={() => toggle('opt')} expanded={expanded.opt} />
           </>
         )}
 
-        {/* OPT path */}
         {isOPT && (
           <>
-            <OPTStage
-              data={visaData}
-              isActive={true}
-              onExpand={() => toggle('opt')}
-              expanded={expanded.opt}
-            />
+            <OPTStage data={visaData} isActive={true} onExpand={() => toggle('opt')} expanded={expanded.opt} />
             <div className={styles.stageArrow}>↓ Next step</div>
-            <STEMStage
-              optData={visaData}
-              stemData={null}
-              optResult={optResult}
-              isActive={false}
-              isFuture={true}
-              onExpand={() => toggle('stem')}
-              expanded={expanded.stem}
-            />
+            <STEMStage optData={visaData} stemData={null} optResult={optResult} isActive={false} isFuture={true} onExpand={() => toggle('stem')} expanded={expanded.stem} />
           </>
         )}
 
-        {/* STEM OPT path */}
         {isSTEM && (
           <>
-            <OPTStage
-              data={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end, employment_periods: visaData.opt_periods || [] }}
-              isActive={false}
-              onExpand={() => toggle('opt')}
-              expanded={expanded.opt}
-            />
+            <OPTStage data={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end, employment_periods: visaData.opt_periods || [] }} isActive={false} onExpand={() => toggle('opt')} expanded={expanded.opt} />
             <div className={styles.stageArrow}>↓ Current</div>
-            <STEMStage
-              optData={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end }}
-              stemData={visaData}
-              optResult={optResult}
-              isActive={true}
-              isFuture={false}
-              onExpand={() => toggle('stem')}
-              expanded={expanded.stem}
-            />
+            <STEMStage optData={{ auth_start: visaData.opt_auth_start, auth_end: visaData.opt_auth_end }} stemData={visaData} optResult={optResult} isActive={true} isFuture={false} onExpand={() => toggle('stem')} expanded={expanded.stem} />
           </>
         )}
-
       </div>
-      <p className={styles.disclaimer}>
-        For informational purposes only. Always verify with your DSO or immigration attorney.
-      </p>
+
+      <p className={styles.disclaimer}>For informational purposes only. Always verify with your DSO or immigration attorney.</p>
     </div>
   )
 }
