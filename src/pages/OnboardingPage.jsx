@@ -1,40 +1,77 @@
 // src/pages/OnboardingPage.jsx
-// Gated onboarding — validates OPT/STEM deadlines before allowing user in
+// Combined F-1 OPT + STEM OPT flow — single timeline
 import { useState, useMemo } from 'react'
 import { supabase } from '../auth/supabase.js'
-import { parseLocalDate, calcUnemployment, diffDays, VISA_RULES } from '../utils/visaCalc.js'
-import { calcStemDates, calcOptEnd } from '../utils/stemDates.js'
+import { parseLocalDate, calcUnemployment } from '../utils/visaCalc.js'
 import styles from './OnboardingPage.module.css'
 
-// ── Date helpers ────────────────────────────────────────────────
-function fmt(dateStr) {
-  if (!dateStr) return '—'
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+// ── Date helpers (timezone-safe) ─────────────────────────────────
+function parseDate(str) {
+  if (!str) return null
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
-function addDays(dateStr, n) {
-  if (!dateStr) return ''
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const dt = new Date(y, m - 1, d + n)
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
+function fmt(str) {
+  if (!str) return '—'
+  const d = parseDate(str)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-function addMonths(dateStr, n) {
-  if (!dateStr) return ''
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const dt = new Date(y, m - 1 + n, d)
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
+function toStr(d) {
+  if (!d) return ''
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
-function isAfter(a, b)  { return a && b && new Date(a) > new Date(b) }
-function isBefore(a, b) { return a && b && new Date(a) < new Date(b) }
-function daysBetween(a, b) {
-  if (!a || !b) return null
-  return Math.round((new Date(b) - new Date(a)) / 86400000)
+function addD(str, n)  {
+  if (!str) return ''
+  const [y,m,d] = str.split('-').map(Number)
+  return toStr(new Date(y, m-1, d+n))
+}
+function addM(str, n)  {
+  if (!str) return ''
+  const [y,m,d] = str.split('-').map(Number)
+  return toStr(new Date(y, m-1+n, d))
+}
+function isAfter(a, b)  { return a && b && parseDate(a) > parseDate(b) }
+function isBefore(a, b) { return a && b && parseDate(a) < parseDate(b) }
+function daysLeft(str)  {
+  if (!str) return null
+  const today = new Date(); today.setHours(0,0,0,0)
+  return Math.round((parseDate(str) - today) / 86400000)
 }
 
-const VISA_CARDS = [
-  { id: 'opt',  label: 'F-1 OPT',      sublabel: 'Optional Practical Training', icon: '🎓', color: '#f97316', desc: '12-month post-graduation work authorization. 90-day unemployment limit.' },
-  { id: 'stem', label: 'F-1 STEM OPT', sublabel: 'STEM OPT Extension',          icon: '🔬', color: '#3b82f6', desc: '24-month extension for STEM graduates. 150-day cumulative unemployment limit.' },
-  { id: 'cpt',  label: 'F-1 CPT',      sublabel: 'Curricular Practical Training',icon: '📚', color: '#22c55e', desc: 'Semester-based authorization. No unemployment limit.' },
+// ── Status cards ─────────────────────────────────────────────────
+const STATUS_CARDS = [
+  {
+    id: 'pre_opt',
+    icon: '🎓',
+    label: 'Approaching graduation',
+    sublabel: "Haven't applied for OPT yet",
+    desc: 'I want to track my OPT application deadline and plan my authorization period.',
+    color: '#f97316',
+  },
+  {
+    id: 'on_opt',
+    icon: '📋',
+    label: 'Currently on OPT',
+    sublabel: 'F-1 Optional Practical Training',
+    desc: 'I have my EAD card and am tracking my 90-day unemployment limit.',
+    color: '#3b82f6',
+  },
+  {
+    id: 'on_stem',
+    icon: '🔬',
+    label: 'Currently on STEM OPT',
+    sublabel: 'F-1 STEM OPT Extension',
+    desc: 'I completed OPT and am now on my 24-month STEM extension tracking 150-day limit.',
+    color: '#8b5cf6',
+  },
+  {
+    id: 'cpt',
+    icon: '📚',
+    label: 'On CPT',
+    sublabel: 'Curricular Practical Training',
+    desc: 'Semester-based work authorization integrated with my curriculum.',
+    color: '#22c55e',
+  },
 ]
 
 let _pid = 0
@@ -44,171 +81,146 @@ function StepIndicator({ current, total }) {
   return (
     <div className={styles.stepIndicator}>
       {Array.from({ length: total }).map((_, i) => (
-        <div key={i} className={`${styles.stepDot} ${i < current ? styles.stepDone : i === current ? styles.stepActive : ''}`} />
+        <div key={i} className={`${styles.stepDot}
+          ${i < current ? styles.stepDone : i === current ? styles.stepActive : ''}`} />
       ))}
     </div>
   )
 }
 
-// ── Deadline gate — shown when user missed a deadline ───────────
-function DeadlineBlocked({ title, message, onBack }) {
+function DateRow({ label, value, color, note, urgent }) {
+  if (!value) return null
   return (
-    <div className={styles.blockedCard}>
-      <div className={styles.blockedIcon}>🚨</div>
-      <h2 className={styles.blockedTitle}>{title}</h2>
-      <p className={styles.blockedMsg}>{message}</p>
-      <div className={styles.blockedActions}>
-        <div className={styles.dsoCard}>
-          <div className={styles.dsoTitle}>Contact your DSO immediately</div>
-          <div className={styles.dsoSteps}>
-            <div>1. Email or visit your international student office</div>
-            <div>2. Explain your situation and ask about options</div>
-            <div>3. Do NOT begin working until your status is resolved</div>
-          </div>
-        </div>
-        <button className={styles.backBtn} onClick={onBack}>← Go back and correct dates</button>
+    <div className={styles.dateRow} style={{ borderColor: urgent ? 'rgba(239,68,68,0.3)' : 'var(--border)' }}>
+      <span className={styles.dateLabel}>{label}</span>
+      <div className={styles.dateRight}>
+        <span className={styles.dateVal} style={{ color: color || 'var(--text-primary)' }}>{fmt(value)}</span>
+        {note && <span className={styles.dateNote}>{note}</span>}
       </div>
     </div>
   )
 }
 
-// ── Date info row ────────────────────────────────────────────────
-function DateInfo({ label, value, color, note }) {
-  if (!value) return null
+function Gate({ title, message, onBack }) {
   return (
-    <div className={styles.dateInfo} style={{ borderColor: `${color || 'var(--border)'}` }}>
-      <span className={styles.dateInfoLabel}>{label}</span>
-      <div>
-        <span className={styles.dateInfoVal} style={{ color: color || 'var(--text-primary)' }}>{value}</span>
-        {note && <span className={styles.dateInfoNote}> · {note}</span>}
+    <div className={styles.gateCard}>
+      <div className={styles.gateIcon}>🚨</div>
+      <h2 className={styles.gateTitle}>{title}</h2>
+      <p className={styles.gateMsg}>{message}</p>
+      <div className={styles.dsoBox}>
+        <div className={styles.dsoTitle}>Contact your DSO immediately</div>
+        <div className={styles.dsoStep}>1. Email or visit your international student office</div>
+        <div className={styles.dsoStep}>2. Explain your timeline and ask about available options</div>
+        <div className={styles.dsoStep}>3. Do NOT start working until your status is resolved</div>
       </div>
+      <button className={styles.backBtn} onClick={onBack}>← Go back and correct dates</button>
     </div>
   )
 }
 
 export default function OnboardingPage({ user, onComplete }) {
-  const [step,       setStep]       = useState(0)
-  const [visaType,   setVisaType]   = useState(null)
-  const [blocked,    setBlocked]    = useState(null)  // null | { title, message }
-  const [saving,     setSaving]     = useState(false)
+  const [step,    setStep]    = useState(0)
+  const [status,  setStatus]  = useState(null)   // pre_opt | on_opt | on_stem | cpt
+  const [blocked, setBlocked] = useState(null)
+  const [saving,  setSaving]  = useState(false)
 
-  // ── Shared dates ─────────────────────────────────────────────
-  const [i20End,         setI20End]         = useState('')  // I-20 program end date
-  const [optAppliedDate, setOptAppliedDate] = useState('')  // When user applied for OPT
-  const [optStartDate,   setOptStartDate]   = useState('')  // EAD start date
-  const [periods,        setPeriods]        = useState([newPeriod()])
-
-  // ── STEM specific ─────────────────────────────────────────────
-  const [stemAppliedDate, setStemAppliedDate] = useState('')  // When user applied for STEM OPT
+  // ── Shared fields ────────────────────────────────────────────
+  const [i20End,          setI20End]          = useState('')
+  const [optAppliedDate,  setOptAppliedDate]  = useState('')
+  const [optStartDate,    setOptStartDate]    = useState('')
+  const [optPeriods,      setOptPeriods]      = useState([newPeriod()])
+  const [stemAppliedDate, setStemAppliedDate] = useState('')
   const [stemPeriods,     setStemPeriods]     = useState([newPeriod()])
 
-  // ── CPT specific ─────────────────────────────────────────────
-  const [cptStart,        setCptStart]        = useState('')
-  const [cptEnd,          setCptEnd]          = useState('')
-  const [enrolledMonths,  setEnrolledMonths]  = useState('12')
+  // ── CPT fields ───────────────────────────────────────────────
+  const [cptStart,       setCptStart]       = useState('')
+  const [cptEnd,         setCptEnd]         = useState('')
+  const [enrolledMonths, setEnrolledMonths] = useState('12')
 
-  // ── Auto-calculated dates ─────────────────────────────────────
-  const calc = useMemo(() => {
-    if (!i20End) return {}
-
-    const optApplyWindowOpen  = addDays(i20End, -90)   // 90 days before I-20 end
-    const optApplyDeadline    = addDays(i20End, 60)    // 60 days after I-20 end
-    const optEarliestStart    = addDays(i20End, 1)     // Day after I-20 end
-    const optLatestStart      = addDays(i20End, 60)    // Same as apply deadline
-
-    const optEnd = optStartDate ? addDays(addMonths(optStartDate, 12), -1) : ''
-
-    const stemApplyDeadline = optEnd ? addDays(optEnd, -90) : ''
-    const stemStart         = optEnd ? addDays(optEnd, 1)   : ''
-    const stemEnd           = stemStart ? addDays(addMonths(stemStart, 24), -1) : ''
-
-    return {
-      optApplyWindowOpen, optApplyDeadline,
-      optEarliestStart, optLatestStart,
-      optEnd,
-      stemApplyDeadline, stemStart, stemEnd,
-    }
+  // ── Auto-calculated dates ────────────────────────────────────
+  const dates = useMemo(() => {
+    const optApplyOpen     = i20End    ? addD(i20End, -90)    : ''
+    const optApplyDeadline = i20End    ? addD(i20End, 60)     : ''
+    const optEarliestStart = i20End    ? addD(i20End, 1)      : ''
+    const optLatestStart   = i20End    ? addD(i20End, 60)     : ''
+    const optEnd           = optStartDate ? addD(addM(optStartDate, 12), -1) : ''
+    const stemApplyBy      = optEnd    ? addD(optEnd, -90)    : ''
+    const stemStart        = optEnd    ? addD(optEnd, 1)      : ''
+    const stemEnd          = stemStart ? addD(addM(stemStart, 24), -1) : ''
+    return { optApplyOpen, optApplyDeadline, optEarliestStart, optLatestStart, optEnd, stemApplyBy, stemStart, stemEnd }
   }, [i20End, optStartDate])
 
-  const isCPT  = visaType === 'cpt'
-  const isSTEM = visaType === 'stem'
-  const totalSteps = isCPT ? 3 : isSTEM ? 5 : 4
+  const isPre  = status === 'pre_opt'
+  const isOPT  = status === 'on_opt'
+  const isSTEM = status === 'on_stem'
+  const isCPT  = status === 'cpt'
 
-  const addPeriod    = () => setPeriods(p => [...p, newPeriod()])
-  const removePeriod = id => setPeriods(p => p.filter(x => x.id !== id))
-  const updatePeriod = (id, f, v) => setPeriods(p => p.map(x => x.id === id ? { ...x, [f]: v } : x))
+  // Steps: pre_opt=4, on_opt=5, on_stem=6, cpt=3
+  const totalSteps = isPre ? 4 : isOPT ? 5 : isSTEM ? 6 : 3
 
+  const addOptPeriod    = () => setOptPeriods(p => [...p, newPeriod()])
+  const removeOptPeriod = id => setOptPeriods(p => p.filter(x => x.id !== id))
+  const updateOptPeriod = (id, f, v) => setOptPeriods(p => p.map(x => x.id === id ? { ...x, [f]: v } : x))
   const addStemPeriod    = () => setStemPeriods(p => [...p, newPeriod()])
   const removeStemPeriod = id => setStemPeriods(p => p.filter(x => x.id !== id))
   const updateStemPeriod = (id, f, v) => setStemPeriods(p => p.map(x => x.id === id ? { ...x, [f]: v } : x))
 
-  // ── Gate checks ───────────────────────────────────────────────
-  function checkOptApplicationDeadline() {
-    if (!optAppliedDate || !calc.optApplyDeadline) return true
-    if (isAfter(optAppliedDate, calc.optApplyDeadline)) {
-      setBlocked({
-        title: 'OPT application submitted after deadline',
-        message: `Your OPT application was submitted on ${fmt(optAppliedDate)}, but the deadline was ${fmt(calc.optApplyDeadline)} (60 days after your I-20 end date of ${fmt(i20End)}). USCIS requires OPT applications to be filed within 60 days of your program end date.`
-      })
+  // ── Gate checks ──────────────────────────────────────────────
+  function checkOptApply() {
+    if (!optAppliedDate) return true
+    if (isAfter(optAppliedDate, dates.optApplyDeadline)) {
+      setBlocked({ title: 'OPT application submitted after deadline', message: `Your OPT application was submitted on ${fmt(optAppliedDate)}, but the deadline was ${fmt(dates.optApplyDeadline)} — 60 days after your I-20 end date of ${fmt(i20End)}.` })
       return false
     }
-    if (isBefore(optAppliedDate, calc.optApplyWindowOpen)) {
-      setBlocked({
-        title: 'OPT application submitted too early',
-        message: `Your OPT application was submitted on ${fmt(optAppliedDate)}, but the earliest you could apply was ${fmt(calc.optApplyWindowOpen)} (90 days before your I-20 end date). Applications submitted outside this window are invalid.`
-      })
+    if (isBefore(optAppliedDate, dates.optApplyOpen)) {
+      setBlocked({ title: 'OPT application submitted too early', message: `Your OPT application was submitted on ${fmt(optAppliedDate)}, but the earliest you could apply was ${fmt(dates.optApplyOpen)} — 90 days before your I-20 end date.` })
       return false
     }
     return true
   }
 
-  function checkOptStartDeadline() {
-    if (!optStartDate || !calc.optLatestStart) return true
-    if (isAfter(optStartDate, calc.optLatestStart)) {
-      setBlocked({
-        title: 'OPT start date is after the allowed window',
-        message: `Your OPT start date is ${fmt(optStartDate)}, but OPT must start by ${fmt(calc.optLatestStart)} (60 days after your I-20 end date of ${fmt(i20End)}). Contact your DSO immediately.`
-      })
+  function checkOptStart() {
+    if (!optStartDate) return true
+    if (isAfter(optStartDate, dates.optLatestStart)) {
+      setBlocked({ title: 'OPT start date is after the allowed window', message: `Your OPT start date is ${fmt(optStartDate)}, but OPT must start by ${fmt(dates.optLatestStart)} — 60 days after your I-20 end date of ${fmt(i20End)}.` })
       return false
     }
     return true
   }
 
-  function checkStemApplicationDeadline() {
-    if (!stemAppliedDate || !calc.stemApplyDeadline) return true
-    if (isAfter(stemAppliedDate, calc.stemApplyDeadline)) {
-      setBlocked({
-        title: 'STEM OPT application submitted after deadline',
-        message: `Your STEM OPT application was submitted on ${fmt(stemAppliedDate)}, but the deadline was ${fmt(calc.stemApplyDeadline)} (90 days before your OPT end date of ${fmt(calc.optEnd)}). USCIS requires STEM OPT applications to be filed within 90 days of OPT expiry.`
-      })
+  function checkStemApply() {
+    if (!stemAppliedDate) return true
+    if (isAfter(stemAppliedDate, dates.stemApplyBy)) {
+      setBlocked({ title: 'STEM OPT application submitted after deadline', message: `Your STEM OPT application was submitted on ${fmt(stemAppliedDate)}, but the deadline was ${fmt(dates.stemApplyBy)} — 90 days before your OPT end date of ${fmt(dates.optEnd)}.` })
       return false
     }
     return true
   }
 
-  // ── Save and complete ─────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────
   async function handleFinish() {
     setSaving(true)
+    const visaType = isSTEM ? 'stem' : isCPT ? 'cpt' : 'opt'
     const data = {
       user_id:    user.id,
       visa_type:  visaType,
-      // OPT as auth for non-STEM, STEM auth for STEM users
-      auth_start:  isSTEM ? calc.stemStart : optStartDate || null,
-      auth_end:    isSTEM ? calc.stemEnd   : calc.optEnd  || null,
-      employment_periods: (isSTEM ? stemPeriods : periods).map(p => ({ start: p.startStr, end: p.endStr })),
-      // OPT carry-over fields for STEM
-      opt_auth_start: isSTEM ? optStartDate        : null,
-      opt_auth_end:   isSTEM ? calc.optEnd         : null,
-      opt_periods:    isSTEM ? periods.map(p => ({ start: p.startStr, end: p.endStr })) : [],
-      // Meta
-      i20_end:           i20End          || null,
+      status_detail: status,
+      i20_end:    i20End || null,
       opt_applied_date:  optAppliedDate  || null,
       stem_applied_date: stemAppliedDate || null,
+      // Auth period
+      auth_start: isSTEM ? dates.stemStart : optStartDate || null,
+      auth_end:   isSTEM ? dates.stemEnd   : dates.optEnd || null,
+      employment_periods: (isSTEM ? stemPeriods : optPeriods).map(p => ({ start: p.startStr, end: p.endStr })),
+      // OPT carry-over for STEM
+      opt_auth_start: isSTEM ? optStartDate    : null,
+      opt_auth_end:   isSTEM ? dates.optEnd    : null,
+      opt_periods:    isSTEM ? optPeriods.map(p => ({ start: p.startStr, end: p.endStr })) : [],
       // CPT
-      cpt_program_start: cptStart        || null,
-      cpt_program_end:   cptEnd          || null,
+      cpt_program_start: cptStart || null,
+      cpt_program_end:   cptEnd   || null,
       enrolled_months:   parseInt(enrolledMonths) || 0,
-      onboarded: true,
+      onboarded:  true,
       updated_at: new Date().toISOString(),
     }
 
@@ -223,31 +235,24 @@ export default function OnboardingPage({ user, onComplete }) {
           { onConflict: 'user_id', ignoreDuplicates: false }
         )
       }
-    } catch (err) {
-      console.error('[onboarding] Save error:', err.message)
-    }
+    } catch (err) { console.error('[onboarding]', err.message) }
 
     setSaving(false)
     onComplete(data)
   }
 
-  // ── Render ────────────────────────────────────────────────────
-  if (blocked) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.card}>
-          <div className={styles.header}>
-            <div className={styles.brand}>⚖ Visa<em>Guard</em></div>
-          </div>
-          <DeadlineBlocked
-            title={blocked.title}
-            message={blocked.message}
-            onBack={() => setBlocked(null)}
-          />
+  const selectedCard = STATUS_CARDS.find(c => c.id === status)
+
+  if (blocked) return (
+    <div className={styles.page}>
+      <div className={styles.card}>
+        <div className={styles.header}>
+          <div className={styles.brand}>⚖ Visa<em>Guard</em></div>
         </div>
+        <Gate title={blocked.title} message={blocked.message} onBack={() => setBlocked(null)} />
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className={styles.page}>
@@ -257,17 +262,17 @@ export default function OnboardingPage({ user, onComplete }) {
           <StepIndicator current={step} total={totalSteps} />
         </div>
 
-        {/* ── Step 0: Visa type ── */}
+        {/* ── Step 0: Status selection ── */}
         {step === 0 && (
           <div className={styles.stepContent}>
-            <h1 className={styles.stepTitle}>What is your current F-1 status?</h1>
-            <p className={styles.stepSub}>Select the visa type you are currently on or applying for</p>
+            <h1 className={styles.stepTitle}>Where are you in your F-1 journey?</h1>
+            <p className={styles.stepSub}>Select your current status — we'll build your complete immigration timeline</p>
             <div className={styles.visaGrid}>
-              {VISA_CARDS.map(card => (
+              {STATUS_CARDS.map(card => (
                 <button key={card.id}
-                  className={`${styles.visaCard} ${visaType === card.id ? styles.visaCardSelected : ''}`}
-                  style={visaType === card.id ? { borderColor: card.color, background: `${card.color}12` } : {}}
-                  onClick={() => setVisaType(card.id)}>
+                  className={`${styles.visaCard} ${status === card.id ? styles.visaCardSelected : ''}`}
+                  style={status === card.id ? { borderColor: card.color, background: `${card.color}12` } : {}}
+                  onClick={() => setStatus(card.id)}>
                   <span className={styles.visaIcon}>{card.icon}</span>
                   <div className={styles.visaCardBody}>
                     <div className={styles.visaCardLabel}>{card.label}</div>
@@ -277,20 +282,20 @@ export default function OnboardingPage({ user, onComplete }) {
                 </button>
               ))}
             </div>
-            <button className={styles.nextBtn} disabled={!visaType} onClick={() => setStep(1)}>
+            <button className={styles.nextBtn} disabled={!status} onClick={() => setStep(1)}>
               Continue →
             </button>
           </div>
         )}
 
-        {/* ── Step 1: I-20 end date ── */}
+        {/* ── Step 1: I-20 end date (all except CPT) ── */}
         {step === 1 && !isCPT && (
           <div className={styles.stepContent}>
-            <div className={styles.stepBadge} style={{ color: VISA_CARDS.find(c => c.id === visaType)?.color }}>
-              {VISA_CARDS.find(c => c.id === visaType)?.icon} {VISA_CARDS.find(c => c.id === visaType)?.label}
+            <div className={styles.stepBadge} style={{ color: selectedCard?.color }}>
+              {selectedCard?.icon} {selectedCard?.label}
             </div>
             <h1 className={styles.stepTitle}>Your I-20 program end date</h1>
-            <p className={styles.stepSub}>This is the "Program End Date" printed on your I-20 form — all OPT deadlines are calculated from this date</p>
+            <p className={styles.stepSub}>The "Program End Date" on your I-20 form — all OPT deadlines are calculated from this</p>
 
             <div className={styles.field}>
               <label className={styles.label}>I-20 program end date</label>
@@ -298,11 +303,22 @@ export default function OnboardingPage({ user, onComplete }) {
             </div>
 
             {i20End && (
-              <div className={styles.autoCalcBox}>
-                <div className={styles.autoCalcTitle}>📅 Your OPT application window</div>
-                <DateInfo label="Earliest you can apply" value={fmt(calc.optApplyWindowOpen)} color="var(--text-secondary)" />
-                <DateInfo label="DEADLINE to apply" value={fmt(calc.optApplyDeadline)} color="var(--danger)" />
-                <DateInfo label="OPT must start by" value={fmt(calc.optLatestStart)} color="var(--warning)" />
+              <div className={styles.calcBox}>
+                <div className={styles.calcTitle}>📅 Your OPT application window</div>
+                <DateRow label="Earliest to apply"    value={dates.optApplyOpen}     color="var(--text-secondary)" />
+                <DateRow label="Deadline to apply"    value={dates.optApplyDeadline} color="var(--danger)" urgent />
+                <DateRow label="OPT must start by"    value={dates.optLatestStart}   color="var(--warning)" />
+                {isPre && daysLeft(dates.optApplyDeadline) !== null && (
+                  <div className={styles.daysAlert} style={{
+                    background: daysLeft(dates.optApplyDeadline) < 30 ? 'var(--danger-soft)' : 'var(--warning-soft)',
+                    color: daysLeft(dates.optApplyDeadline) < 30 ? 'var(--danger)' : 'var(--warning)',
+                    borderColor: daysLeft(dates.optApplyDeadline) < 30 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)',
+                  }}>
+                    {daysLeft(dates.optApplyDeadline) > 0
+                      ? `⚡ ${daysLeft(dates.optApplyDeadline)} days left to apply for OPT`
+                      : '🚨 OPT application deadline has passed'}
+                  </div>
+                )}
               </div>
             )}
 
@@ -313,195 +329,12 @@ export default function OnboardingPage({ user, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 2: OPT application date + start date ── */}
-        {step === 2 && !isCPT && (
-          <div className={styles.stepContent}>
-            <div className={styles.stepBadge} style={{ color: '#f97316' }}>🎓 OPT Application</div>
-            <h1 className={styles.stepTitle}>Your OPT application details</h1>
-            <p className={styles.stepSub}>Enter when you applied and when your OPT started — we'll verify both are within the allowed window</p>
-
-            <div className={styles.field}>
-              <label className={styles.label}>When did you submit your OPT application?</label>
-              <input type="date" className={styles.input} value={optAppliedDate}
-                onChange={e => setOptAppliedDate(e.target.value)}
-                min={calc.optApplyWindowOpen} max={calc.optApplyDeadline} />
-              {optAppliedDate && calc.optApplyDeadline && (
-                isAfter(optAppliedDate, calc.optApplyDeadline)
-                  ? <p className={styles.errorHint}>⚠ This is after the deadline of {fmt(calc.optApplyDeadline)}</p>
-                  : isBefore(optAppliedDate, calc.optApplyWindowOpen)
-                    ? <p className={styles.errorHint}>⚠ This is before the window opened on {fmt(calc.optApplyWindowOpen)}</p>
-                    : <p className={styles.successHint}>✓ Within the allowed window</p>
-              )}
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>What is your OPT start date? (from your EAD card)</label>
-              <input type="date" className={styles.input} value={optStartDate}
-                onChange={e => setOptStartDate(e.target.value)}
-                min={calc.optEarliestStart} max={calc.optLatestStart} />
-              {optStartDate && calc.optLatestStart && (
-                isAfter(optStartDate, calc.optLatestStart)
-                  ? <p className={styles.errorHint}>⚠ OPT must start by {fmt(calc.optLatestStart)}</p>
-                  : <p className={styles.successHint}>✓ Within the allowed window</p>
-              )}
-            </div>
-
-            {optStartDate && calc.optEnd && (
-              <div className={styles.autoCalcBox}>
-                <div className={styles.autoCalcTitle}>✓ Auto-calculated from your OPT start date</div>
-                <DateInfo label="OPT end date (EAD expiry)" value={fmt(calc.optEnd)} color="var(--accent)" />
-                {isSTEM && <DateInfo label="Apply for STEM OPT by" value={fmt(calc.stemApplyDeadline)} color="var(--warning)" />}
-                {isSTEM && <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" />}
-                {isSTEM && <DateInfo label="STEM OPT end (EAD expiry)" value={fmt(calc.stemEnd)} color="var(--success)" />}
-              </div>
-            )}
-
-            <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(1)}>← Back</button>
-              <button className={styles.nextBtn}
-                disabled={!optAppliedDate || !optStartDate}
-                onClick={() => {
-                  if (!checkOptApplicationDeadline()) return
-                  if (!checkOptStartDeadline()) return
-                  setStep(3)
-                }}>
-                Continue →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 3: OPT employment ── */}
-        {step === 3 && !isCPT && !isSTEM && (
-          <div className={styles.stepContent}>
-            <div className={styles.stepBadge} style={{ color: '#f97316' }}>🎓 F-1 OPT</div>
-            <h1 className={styles.stepTitle}>Your OPT employment history</h1>
-            <p className={styles.stepSub}>Add jobs during your OPT period — leave end date blank if currently employed</p>
-
-            <div className={styles.sectionHead}>
-              <label className={styles.label}>Employment periods</label>
-              <button className={styles.addBtn} onClick={addPeriod}>+ Add period</button>
-            </div>
-            {periods.map(p => (
-              <div key={p.id} className={styles.periodRow}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Start date</label>
-                  <input type="date" className={styles.input} value={p.startStr} onChange={e => updatePeriod(p.id, 'startStr', e.target.value)} />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>End (blank = current)</label>
-                  <input type="date" className={styles.input} value={p.endStr} onChange={e => updatePeriod(p.id, 'endStr', e.target.value)} />
-                </div>
-                {periods.length > 1 && <button className={styles.delBtn} onClick={() => removePeriod(p.id)}>×</button>}
-              </div>
-            ))}
-
-            <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(2)}>← Back</button>
-              <button className={styles.nextBtn} onClick={() => setStep(4)}>Review & finish →</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 3 (STEM): OPT employment ── */}
-        {step === 3 && isSTEM && (
-          <div className={styles.stepContent}>
-            <div className={styles.stepBadge} style={{ color: '#f97316' }}>🎓 OPT Employment</div>
-            <h1 className={styles.stepTitle}>Your OPT employment history</h1>
-            <p className={styles.stepSub}>Add jobs during your initial OPT period — used to calculate carry-over days into your 150-day STEM limit</p>
-
-            <div className={styles.sectionHead}>
-              <label className={styles.label}>OPT employment periods ({fmt(optStartDate)} → {fmt(calc.optEnd)})</label>
-              <button className={styles.addBtn} onClick={addPeriod}>+ Add</button>
-            </div>
-            {periods.map(p => (
-              <div key={p.id} className={styles.periodRow}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Start</label>
-                  <input type="date" className={styles.input} value={p.startStr} onChange={e => updatePeriod(p.id, 'startStr', e.target.value)} />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>End</label>
-                  <input type="date" className={styles.input} value={p.endStr} onChange={e => updatePeriod(p.id, 'endStr', e.target.value)} />
-                </div>
-                {periods.length > 1 && <button className={styles.delBtn} onClick={() => removePeriod(p.id)}>×</button>}
-              </div>
-            ))}
-
-            <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(2)}>← Back</button>
-              <button className={styles.nextBtn} onClick={() => setStep(4)}>Continue →</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 4 (STEM): STEM application + employment ── */}
-        {step === 4 && isSTEM && (
-          <div className={styles.stepContent}>
-            <div className={styles.stepBadge} style={{ color: '#3b82f6' }}>🔬 STEM OPT</div>
-            <h1 className={styles.stepTitle}>Your STEM OPT details</h1>
-            <p className={styles.stepSub}>Enter when you applied for STEM OPT — must be within 90 days before OPT expires</p>
-
-            <div className={styles.field}>
-              <label className={styles.label}>When did you submit your STEM OPT application?</label>
-              <input type="date" className={styles.input} value={stemAppliedDate}
-                onChange={e => setStemAppliedDate(e.target.value)}
-                max={calc.stemApplyDeadline} />
-              {stemAppliedDate && calc.stemApplyDeadline && (
-                isAfter(stemAppliedDate, calc.stemApplyDeadline)
-                  ? <p className={styles.errorHint}>⚠ This is after the deadline of {fmt(calc.stemApplyDeadline)}</p>
-                  : <p className={styles.successHint}>✓ Applied {daysBetween(stemAppliedDate, calc.stemApplyDeadline)} days before deadline</p>
-              )}
-            </div>
-
-            {calc.stemStart && (
-              <div className={styles.autoCalcBox}>
-                <div className={styles.autoCalcTitle}>✓ Your STEM OPT dates</div>
-                <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" />
-                <DateInfo label="STEM OPT end (EAD expiry)" value={fmt(calc.stemEnd)} color="var(--success)" />
-              </div>
-            )}
-
-            <div className={styles.sectionHead} style={{ marginTop: 16 }}>
-              <label className={styles.label}>STEM OPT employment periods</label>
-              <button className={styles.addBtn} onClick={addStemPeriod}>+ Add period</button>
-            </div>
-            <p className={styles.fieldHint}>Enter only jobs from your STEM OPT start date onwards</p>
-            {stemPeriods.map(p => (
-              <div key={p.id} className={styles.periodRow}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Start</label>
-                  <input type="date" className={styles.input} value={p.startStr} onChange={e => updateStemPeriod(p.id, 'startStr', e.target.value)} />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>End (blank = current)</label>
-                  <input type="date" className={styles.input} value={p.endStr} onChange={e => updateStemPeriod(p.id, 'endStr', e.target.value)} />
-                </div>
-                {stemPeriods.length > 1 && <button className={styles.delBtn} onClick={() => removeStemPeriod(p.id)}>×</button>}
-              </div>
-            ))}
-
-            <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(3)}>← Back</button>
-              <button className={styles.nextBtn}
-                disabled={!stemAppliedDate}
-                onClick={() => {
-                  if (!checkStemApplicationDeadline()) return
-                  setStep(5)
-                }}>
-                Review & finish →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── CPT Step 1: Program details ── */}
+        {/* ── Step 1 CPT ── */}
         {step === 1 && isCPT && (
           <div className={styles.stepContent}>
             <div className={styles.stepBadge} style={{ color: '#22c55e' }}>📚 F-1 CPT</div>
             <h1 className={styles.stepTitle}>Your CPT program details</h1>
-            <p className={styles.stepSub}>CPT is authorized per semester — no unemployment day limit applies</p>
-
+            <p className={styles.stepSub}>CPT is authorized per semester by your DSO — no unemployment day limit</p>
             <div className={styles.row2}>
               <div className={styles.field}>
                 <label className={styles.label}>Program start date</label>
@@ -514,10 +347,10 @@ export default function OnboardingPage({ user, onComplete }) {
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Full-time enrollment duration (months)</label>
-              <input type="number" min="0" max="120" className={styles.input} value={enrolledMonths} onChange={e => setEnrolledMonths(e.target.value)} />
+              <input type="number" min="0" max="120" className={styles.input}
+                value={enrolledMonths} onChange={e => setEnrolledMonths(e.target.value)} />
               <p className={styles.fieldHint}>Must be at least 9 months to qualify for CPT</p>
             </div>
-
             <div className={styles.navRow}>
               <button className={styles.backBtn} onClick={() => setStep(0)}>← Back</button>
               <button className={styles.nextBtn} onClick={() => setStep(2)}>Continue →</button>
@@ -525,7 +358,78 @@ export default function OnboardingPage({ user, onComplete }) {
           </div>
         )}
 
-        {/* ── CPT Step 2: Eligibility ── */}
+        {/* ── Step 2: OPT application details (pre_opt, on_opt, on_stem) ── */}
+        {step === 2 && !isCPT && (
+          <div className={styles.stepContent}>
+            <div className={styles.stepBadge} style={{ color: '#f97316' }}>🎓 OPT Application</div>
+            <h1 className={styles.stepTitle}>
+              {isPre ? 'Plan your OPT application' : 'Your OPT application details'}
+            </h1>
+            <p className={styles.stepSub}>
+              {isPre
+                ? "Enter your planned application date — we'll verify it's within your window"
+                : 'Enter when you applied and when your OPT started — we verify both are within the allowed window'}
+            </p>
+
+            <div className={styles.field}>
+              <label className={styles.label}>
+                {isPre ? 'When do you plan to apply for OPT?' : 'When did you submit your OPT application?'}
+              </label>
+              <input type="date" className={styles.input} value={optAppliedDate}
+                min={dates.optApplyOpen} max={dates.optApplyDeadline}
+                onChange={e => setOptAppliedDate(e.target.value)} />
+              {optAppliedDate && (
+                isAfter(optAppliedDate, dates.optApplyDeadline)
+                  ? <p className={styles.errorHint}>⚠ After deadline of {fmt(dates.optApplyDeadline)}</p>
+                  : isBefore(optAppliedDate, dates.optApplyOpen)
+                    ? <p className={styles.errorHint}>⚠ Before window opens on {fmt(dates.optApplyOpen)}</p>
+                    : <p className={styles.successHint}>✓ Within the allowed window</p>
+              )}
+            </div>
+
+            {!isPre && (
+              <div className={styles.field}>
+                <label className={styles.label}>What is your OPT start date? (from your EAD card)</label>
+                <input type="date" className={styles.input} value={optStartDate}
+                  min={dates.optEarliestStart} max={dates.optLatestStart}
+                  onChange={e => setOptStartDate(e.target.value)} />
+                {optStartDate && (
+                  isAfter(optStartDate, dates.optLatestStart)
+                    ? <p className={styles.errorHint}>⚠ OPT must start by {fmt(dates.optLatestStart)}</p>
+                    : <p className={styles.successHint}>✓ Within the allowed window</p>
+                )}
+              </div>
+            )}
+
+            {/* Auto-calculated dates */}
+            {(optStartDate || isPre) && dates.optEnd && (
+              <div className={styles.calcBox}>
+                <div className={styles.calcTitle}>✓ Your full F-1 timeline</div>
+                <DateRow label="OPT start"            value={optStartDate || '—'}   color="var(--accent)" />
+                <DateRow label="OPT end (EAD expiry)" value={dates.optEnd}           color="var(--accent)" />
+                <DateRow label="Apply for STEM OPT by" value={dates.stemApplyBy}     color="var(--warning)"
+                  note={daysLeft(dates.stemApplyBy) > 0 ? `${daysLeft(dates.stemApplyBy)} days away` : 'Deadline passed'} />
+                <DateRow label="STEM OPT start"       value={dates.stemStart}        color="var(--success)" />
+                <DateRow label="STEM OPT end"         value={dates.stemEnd}          color="var(--success)" />
+              </div>
+            )}
+
+            <div className={styles.navRow}>
+              <button className={styles.backBtn} onClick={() => setStep(1)}>← Back</button>
+              <button className={styles.nextBtn}
+                disabled={!optAppliedDate || (!isPre && !optStartDate)}
+                onClick={() => {
+                  if (!checkOptApply()) return
+                  if (!isPre && !checkOptStart()) return
+                  setStep(3)
+                }}>
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2 CPT: Eligibility ── */}
         {step === 2 && isCPT && (
           <div className={styles.stepContent}>
             <div className={styles.stepBadge} style={{ color: '#22c55e' }}>📚 CPT Eligibility</div>
@@ -538,13 +442,13 @@ export default function OnboardingPage({ user, onComplete }) {
                   <div className={`${styles.eligResult} ${ok ? styles.eligOk : styles.eligFail}`}>
                     <span>{ok ? '✓' : '✗'}</span>
                     <div>
-                      <div>{ok ? 'You are eligible for CPT' : 'Not yet eligible — need 9+ months enrollment'}</div>
-                      <div className={styles.eligNote}>{months} months enrolled {ok ? '— meets the 9-month requirement' : ''}</div>
+                      <div>{ok ? 'Eligible for CPT' : 'Not yet eligible — need 9+ months enrollment'}</div>
+                      <div className={styles.eligNote}>{months} months enrolled</div>
                     </div>
                   </div>
                   {months >= 12 && (
                     <div className={styles.warningBox}>
-                      ⚠ 12+ months of full-time CPT makes you ineligible for OPT. Track your CPT duration carefully.
+                      ⚠ 12+ months full-time CPT = OPT ineligible. Track carefully.
                     </div>
                   )}
                 </>
@@ -559,41 +463,172 @@ export default function OnboardingPage({ user, onComplete }) {
           </div>
         )}
 
+        {/* ── Step 3: OPT employment (on_opt, on_stem, pre_opt) ── */}
+        {step === 3 && !isCPT && (
+          <div className={styles.stepContent}>
+            <div className={styles.stepBadge} style={{ color: '#f97316' }}>
+              {isPre ? '🎓 Planned Employment' : '📋 OPT Employment'}
+            </div>
+            <h1 className={styles.stepTitle}>
+              {isPre ? 'Planned employment' : 'Your OPT employment history'}
+            </h1>
+            <p className={styles.stepSub}>
+              {isPre
+                ? 'Add any planned employment — leave blank if unknown'
+                : isSTEM
+                  ? `OPT period: ${fmt(optStartDate)} → ${fmt(dates.optEnd)} — used for carry-over calculation`
+                  : 'Add jobs during your OPT period — leave end date blank if currently employed'}
+            </p>
+
+            <div className={styles.sectionHead}>
+              <label className={styles.label}>Employment periods</label>
+              <button className={styles.addBtn} onClick={addOptPeriod}>+ Add period</button>
+            </div>
+            {optPeriods.map(p => (
+              <div key={p.id} className={styles.periodRow}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Start date</label>
+                  <input type="date" className={styles.input} value={p.startStr}
+                    onChange={e => updateOptPeriod(p.id, 'startStr', e.target.value)} />
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>End (blank = current)</label>
+                  <input type="date" className={styles.input} value={p.endStr}
+                    onChange={e => updateOptPeriod(p.id, 'endStr', e.target.value)} />
+                </div>
+                {optPeriods.length > 1 && (
+                  <button className={styles.delBtn} onClick={() => removeOptPeriod(p.id)}>×</button>
+                )}
+              </div>
+            ))}
+
+            <div className={styles.navRow}>
+              <button className={styles.backBtn} onClick={() => setStep(2)}>← Back</button>
+              <button className={styles.nextBtn} onClick={() => {
+                if (isPre || isOPT) setStep(4)   // → review
+                else setStep(4)                   // → STEM details
+              }}>
+                {isPre || isOPT ? 'Review & finish →' : 'Continue →'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 4: STEM OPT details (on_stem only) ── */}
+        {step === 4 && isSTEM && (
+          <div className={styles.stepContent}>
+            <div className={styles.stepBadge} style={{ color: '#8b5cf6' }}>🔬 STEM OPT Application</div>
+            <h1 className={styles.stepTitle}>Your STEM OPT application</h1>
+            <p className={styles.stepSub}>Enter when you applied for STEM OPT — must be within 90 days before OPT expires</p>
+
+            <div className={styles.field}>
+              <label className={styles.label}>When did you submit your STEM OPT application?</label>
+              <input type="date" className={styles.input} value={stemAppliedDate}
+                max={dates.stemApplyBy}
+                onChange={e => setStemAppliedDate(e.target.value)} />
+              {stemAppliedDate && (
+                isAfter(stemAppliedDate, dates.stemApplyBy)
+                  ? <p className={styles.errorHint}>⚠ After deadline of {fmt(dates.stemApplyBy)}</p>
+                  : <p className={styles.successHint}>
+                      ✓ Applied {Math.round((parseDate(dates.stemApplyBy) - parseDate(stemAppliedDate)) / 86400000)} days before deadline
+                    </p>
+              )}
+            </div>
+
+            <div className={styles.calcBox}>
+              <div className={styles.calcTitle}>✓ Your STEM OPT dates</div>
+              <DateRow label="STEM OPT start"         value={dates.stemStart} color="var(--success)" />
+              <DateRow label="STEM OPT end (EAD expiry)" value={dates.stemEnd} color="var(--success)" />
+            </div>
+
+            <div className={styles.navRow}>
+              <button className={styles.backBtn} onClick={() => setStep(3)}>← Back</button>
+              <button className={styles.nextBtn} disabled={!stemAppliedDate}
+                onClick={() => {
+                  if (!checkStemApply()) return
+                  setStep(5)
+                }}>
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 5: STEM employment (on_stem) ── */}
+        {step === 5 && isSTEM && (
+          <div className={styles.stepContent}>
+            <div className={styles.stepBadge} style={{ color: '#8b5cf6' }}>🔬 STEM OPT Employment</div>
+            <h1 className={styles.stepTitle}>Your STEM OPT employment</h1>
+            <p className={styles.stepSub}>
+              Enter jobs from your STEM OPT start date ({fmt(dates.stemStart)}) onwards only
+            </p>
+
+            <div className={styles.sectionHead}>
+              <label className={styles.label}>STEM OPT employment periods</label>
+              <button className={styles.addBtn} onClick={addStemPeriod}>+ Add period</button>
+            </div>
+            {stemPeriods.map(p => (
+              <div key={p.id} className={styles.periodRow}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Start</label>
+                  <input type="date" className={styles.input} value={p.startStr}
+                    onChange={e => updateStemPeriod(p.id, 'startStr', e.target.value)} />
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>End (blank = current)</label>
+                  <input type="date" className={styles.input} value={p.endStr}
+                    onChange={e => updateStemPeriod(p.id, 'endStr', e.target.value)} />
+                </div>
+                {stemPeriods.length > 1 && (
+                  <button className={styles.delBtn} onClick={() => removeStemPeriod(p.id)}>×</button>
+                )}
+              </div>
+            ))}
+
+            <div className={styles.navRow}>
+              <button className={styles.backBtn} onClick={() => setStep(4)}>← Back</button>
+              <button className={styles.nextBtn} onClick={() => setStep(6)}>Review & finish →</button>
+            </div>
+          </div>
+        )}
+
         {/* ── Final review ── */}
-        {(step === 4 && !isSTEM) || step === 5 ? (
+        {((step === 4 && (isPre || isOPT)) || step === 6) && (
           <div className={styles.stepContent}>
             <h1 className={styles.stepTitle}>You're all set! 🎉</h1>
-            <p className={styles.stepSub}>Here's your compliance summary</p>
+            <p className={styles.stepSub}>Your complete F-1 timeline — all dates verified</p>
 
             <div className={styles.summaryCard}>
               <div className={styles.summaryRow}>
-                <span>Visa type</span>
-                <strong>{VISA_CARDS.find(c => c.id === visaType)?.label}</strong>
+                <span>Status</span>
+                <strong>{STATUS_CARDS.find(c => c.id === status)?.label}</strong>
               </div>
               <div className={styles.summaryRow}>
                 <span>I-20 end date</span>
                 <strong>{fmt(i20End)}</strong>
               </div>
-              <div className={styles.summaryRow}>
-                <span>OPT start date</span>
-                <strong>{fmt(optStartDate)}</strong>
-              </div>
-              <div className={styles.summaryRow}>
-                <span>OPT end date</span>
-                <strong>{fmt(calc.optEnd)}</strong>
-              </div>
-              {isSTEM && <>
+              {!isPre && (
+                <>
+                  <div className={styles.summaryRow}>
+                    <span>OPT period</span>
+                    <strong>{fmt(optStartDate)} → {fmt(dates.optEnd)}</strong>
+                  </div>
+                  <div className={styles.summaryRow}>
+                    <span>Apply for STEM OPT by</span>
+                    <strong style={{ color: daysLeft(dates.stemApplyBy) < 30 ? 'var(--warning)' : 'var(--text-primary)' }}>
+                      {fmt(dates.stemApplyBy)}
+                    </strong>
+                  </div>
+                </>
+              )}
+              {isSTEM && (
                 <div className={styles.summaryRow}>
-                  <span>STEM OPT start</span>
-                  <strong>{fmt(calc.stemStart)}</strong>
+                  <span>STEM OPT period</span>
+                  <strong>{fmt(dates.stemStart)} → {fmt(dates.stemEnd)}</strong>
                 </div>
-                <div className={styles.summaryRow}>
-                  <span>STEM OPT end</span>
-                  <strong>{fmt(calc.stemEnd)}</strong>
-                </div>
-              </>}
+              )}
               <div className={styles.summaryRow} style={{ color: 'var(--success)' }}>
-                <span>✓ All deadlines verified</span>
+                <span>✓ Deadlines verified</span>
                 <strong style={{ color: 'var(--success)' }}>Compliant</strong>
               </div>
             </div>
@@ -601,8 +636,11 @@ export default function OnboardingPage({ user, onComplete }) {
             <button className={styles.finishBtn} onClick={handleFinish} disabled={saving}>
               {saving ? 'Setting up your dashboard…' : 'Go to my dashboard →'}
             </button>
+            <p className={styles.fieldHint} style={{ textAlign: 'center', marginTop: 8 }}>
+              You can update your details anytime from the Status Tracker
+            </p>
           </div>
-        ) : null}
+        )}
 
       </div>
     </div>
