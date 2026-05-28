@@ -208,6 +208,8 @@ export default function TrackerPage({ initialData }) {
                 <div className={styles.field}>
                   <label className={styles.miniLabel}>Start</label>
                   <input type="date" className={styles.input} value={p.startStr}
+                    min={activeAuthStart || undefined}
+                    max={activeAuthEnd || undefined}
                     onChange={e => {
                       const next = activePeriods.map(x => x.id===p.id?{...x,startStr:e.target.value}:x)
                       setEditedPeriods(next)
@@ -303,7 +305,10 @@ export default function TrackerPage({ initialData }) {
             <div key={p.id} className={styles.periodRow}>
               <div className={styles.field}>
                 <label className={styles.miniLabel}>Start date</label>
-                <input type="date" className={styles.input} value={p.startStr} onChange={e => { updatePeriod(p.id,'startStr',e.target.value); setCalculated(false) }} />
+                <input type="date" className={styles.input} value={p.startStr}
+                  min={authStart || undefined}
+                  max={authEnd || undefined}
+                  onChange={e => { updatePeriod(p.id,'startStr',e.target.value); setCalculated(false) }} />
               </div>
               <div className={styles.field}>
                 <label className={styles.miniLabel}>End (blank = current)</label>

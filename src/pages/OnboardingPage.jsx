@@ -494,16 +494,25 @@ export default function OnboardingPage({ user, onComplete }) {
               <label className={styles.label}>Employment periods</label>
               <button className={styles.addBtn} onClick={addOptPeriod}>+ Add period</button>
             </div>
+            {!optStartDate && (
+              <p className={styles.errorHint}>⚠ Enter your OPT start date first to enable employment date selection</p>
+            )}
             {optPeriods.map(p => (
               <div key={p.id} className={styles.periodRow}>
                 <div className={styles.field}>
                   <label className={styles.label}>Start date</label>
                   <input type="date" className={styles.input} value={p.startStr}
+                    min={optStartDate || undefined}
+                    max={dates.optEnd || undefined}
+                    disabled={!optStartDate}
                     onChange={e => updateOptPeriod(p.id, 'startStr', e.target.value)} />
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>End (blank = current)</label>
                   <input type="date" className={styles.input} value={p.endStr}
+                    min={p.startStr || optStartDate || undefined}
+                    max={dates.optEnd || undefined}
+                    disabled={!optStartDate}
                     onChange={e => updateOptPeriod(p.id, 'endStr', e.target.value)} />
                 </div>
                 {optPeriods.length > 1 && (
@@ -583,11 +592,15 @@ export default function OnboardingPage({ user, onComplete }) {
                 <div className={styles.field}>
                   <label className={styles.label}>Start</label>
                   <input type="date" className={styles.input} value={p.startStr}
+                    min={dates.stemStart || undefined}
+                    max={dates.stemEnd || undefined}
                     onChange={e => updateStemPeriod(p.id, 'startStr', e.target.value)} />
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>End (blank = current)</label>
                   <input type="date" className={styles.input} value={p.endStr}
+                    min={p.startStr || dates.stemStart || undefined}
+                    max={dates.stemEnd || undefined}
                     onChange={e => updateStemPeriod(p.id, 'endStr', e.target.value)} />
                 </div>
                 {stemPeriods.length > 1 && (
