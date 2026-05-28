@@ -418,8 +418,8 @@ export default function OnboardingPage({ user, onComplete }) {
                 <div className={styles.calcTitle}>✓ Your full F-1 timeline</div>
                 <DateRow label="OPT start"            value={optStartDate || '—'}   color="var(--accent)" />
                 <DateRow label="OPT end (EAD expiry)" value={dates.optEnd}           color="var(--accent)" />
-                <DateRow label="Apply for STEM OPT by" value={dates.stemApplyBy} color="var(--warning)"
-                  note={isSTEM ? 'Already applied' : daysLeft(dates.stemApplyBy) > 0 ? `${daysLeft(dates.stemApplyBy)} days away` : 'Deadline passed'} />
+                <DateRow label="Apply for STEM OPT by" value={dates.stemApplyBy} color="var(--success)"
+                  note="90 days before OPT ends" />
                 <DateRow label="STEM OPT start"       value={dates.stemStart}        color="var(--success)" />
                 <DateRow label="STEM OPT end"         value={dates.stemEnd}          color="var(--success)" />
               </div>

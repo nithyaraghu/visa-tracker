@@ -261,32 +261,32 @@ export default function JourneyPage({ visaData, user }) {
         {!isSTEM && stemApplyBy && optStart && (
           <Event
             type={
-              checks['opt_stem_applied'] ? 'done' :
+              stemApplied ? 'done' :
               stemDaysAway === null ? 'future' :
-              stemDaysAway < 0  ? 'danger' :
-              stemDaysAway < 30 ? 'danger' :
-              stemDaysAway < 90 ? 'urgent' : 'future'
+              stemDaysAway > 90 ? 'future' :
+              stemDaysAway > 30 ? 'urgent' :
+              stemDaysAway >= 0 ? 'danger' : 'danger'
             }
             date={fmtDate(stemApplyBy)}
             label="Apply for STEM OPT"
             badge={
-              checks['opt_stem_applied'] ? 'Applied ✓' :
+              stemApplied ? 'Applied ✓' :
               stemDaysAway === null ? 'Upcoming' :
               stemDaysAway < 0  ? 'Deadline passed' :
               `${stemDaysAway} days away`
             }
             badgeType={
-              checks['opt_stem_applied'] ? 'done' :
+              stemApplied ? 'done' :
               stemDaysAway !== null && stemDaysAway < 30 ? 'danger' :
               stemDaysAway !== null && stemDaysAway < 90 ? 'urgent' : 'future'
             }
           >
-            {!checks['opt_stem_applied'] && stemDaysAway !== null && stemDaysAway < 0 && (
+            {!stemApplied && stemDaysAway !== null && stemDaysAway < 0 && (
               <div className={styles.alertBox}>
                 🚨 The STEM OPT application deadline has passed. If you have not applied, contact your DSO immediately.
               </div>
             )}
-            {!checks['opt_stem_applied'] && stemDaysAway !== null && stemDaysAway >= 0 && (
+            {!stemApplied && stemDaysAway !== null && stemDaysAway >= 0 && (
               <p className={styles.detailNote}>
                 File your STEM OPT application at least 90 days before your OPT expires on <strong>{fmtDate(optEnd)}</strong>. Do not miss this deadline.
               </p>
