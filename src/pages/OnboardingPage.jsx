@@ -9,7 +9,8 @@ import styles from './OnboardingPage.module.css'
 // ── Date helpers ────────────────────────────────────────────────
 function fmt(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 function addDays(dateStr, n) {
   if (!dateStr) return ''

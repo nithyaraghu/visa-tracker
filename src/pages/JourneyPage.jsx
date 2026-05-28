@@ -5,7 +5,11 @@ import styles from './JourneyPage.module.css'
 
 function addDays(d, n)   { const r = new Date(d); r.setDate(r.getDate() + n); return r }
 function addMonths(d, n) { const r = new Date(d); r.setMonth(r.getMonth() + n); return r }
-function fmtDate(d)      { if (!d) return '—'; return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+function fmtDate(d) {
+  if (!d) return '—'
+  if (typeof d === 'string') { const [y,m,day] = d.split('-').map(Number); d = new Date(y, m-1, day) }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 function daysFromNow(d)  { const t = new Date(); t.setHours(0,0,0,0); return Math.round((d - t) / 86400000) }
 
 // ── Compliance checklist stored in localStorage ─────────────────

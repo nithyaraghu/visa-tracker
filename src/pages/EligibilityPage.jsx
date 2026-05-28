@@ -22,10 +22,14 @@ function addMonthsToStr(dateStr, n) {
   return d.toISOString().split('T')[0]
 }
 
-import { calcStemDates } from '../utils/stemDates.js'
+import { calcStemDates, calcOptEnd } from '../utils/stemDates.js'
 
 function fmtDate(d) {
   if (!d) return '—'
+  if (typeof d === 'string') {
+    const [y, m, day] = d.split('-').map(Number)
+    d = new Date(y, m - 1, day)
+  }
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 function addDays(d, n)    { const r = new Date(d); r.setDate(r.getDate() + n); return r }
