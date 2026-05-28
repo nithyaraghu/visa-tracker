@@ -12,10 +12,12 @@
  */
 export function calcOptEnd(optStartStr) {
   if (!optStartStr) return ''
-  const d = new Date(optStartStr)
-  d.setFullYear(d.getFullYear() + 1)
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+  // Parse as local date to avoid timezone shift
+  const [y, m, d] = optStartStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setFullYear(date.getFullYear() + 1)
+  date.setDate(date.getDate() - 1)
+  return date.toISOString().split('T')[0]
 }
 
 /**
@@ -29,23 +31,18 @@ export function calcOptEnd(optStartStr) {
 export function calcStemDates(optEndStr) {
   if (!optEndStr) return { stemStart: '', stemEnd: '', applyBy: '' }
 
-  const optEnd = new Date(optEndStr)
+  // Parse as local date to avoid timezone shift
+  const [y, m, d] = optEndStr.split('-').map(Number)
+  const optEnd = new Date(y, m - 1, d)
 
-  // STEM start = day after OPT ends
-  const stemStart = new Date(optEnd)
-  stemStart.setDate(stemStart.getDate() + 1)
+  const stemStart = new Date(y, m - 1, d + 1)             // day after OPT ends
+  const stemEnd   = new Date(stemStart.getFullYear(),
+                             stemStart.getMonth() + 24,
+                             stemStart.getDate() - 1)      // 24 months - 1 day
+  const applyBy   = new Date(y, m - 1, d - 90)            // 90 days before OPT ends
 
-  // STEM end = 24 months after start, minus 1 day
-  const stemEnd = new Date(stemStart)
-  stemEnd.setMonth(stemEnd.getMonth() + 24)
-  stemEnd.setDate(stemEnd.getDate() - 1)
-
-  // Apply by = 90 days before OPT ends
-  const applyBy = new Date(optEnd)
-  applyBy.setDate(applyBy.getDate() - 90)
-
-  function fmt(d) {
-    return d.toISOString().split('T')[0]
+  function fmt(dt) {
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
   }
 
   return {
