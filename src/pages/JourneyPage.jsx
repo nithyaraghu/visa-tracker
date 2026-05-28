@@ -138,10 +138,11 @@ export default function JourneyPage({ visaData, user }) {
     })
   }
 
-  const visaType = visaData?.visa_type
-  const isSTEM   = visaType === 'stem'
-  const isOPT    = visaType === 'opt'
-  const isCPT    = visaType === 'cpt'
+  const visaType    = visaData?.visa_type
+  const isSTEM      = visaType === 'stem'
+  const isOPT       = visaType === 'opt'
+  const isCPT       = visaType === 'cpt'
+  const stemApplied = !!(checks['opt_stem_applied']) || !!(visaData?.stem_applied_date) || isSTEM
 
   // Dates
   const i20End        = visaData?.i20_end        || null
