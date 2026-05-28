@@ -156,7 +156,7 @@ export default function OnboardingPage({ user, onComplete }) {
   const isCPT  = status === 'cpt'
 
   // Steps: pre_opt=4, on_opt=5, on_stem=6, cpt=3
-  const totalSteps = isPre ? 4 : isOPT ? 5 : isSTEM ? 6 : 3
+  const totalSteps = isPre ? 4 : isOPT ? 5 : isSTEM ? 4 : 3
 
   const addOptPeriod    = () => setOptPeriods(p => [...p, newPeriod()])
   const removeOptPeriod = id => setOptPeriods(p => p.filter(x => x.id !== id))
@@ -282,7 +282,10 @@ export default function OnboardingPage({ user, onComplete }) {
                 </button>
               ))}
             </div>
-            <button className={styles.nextBtn} disabled={!status} onClick={() => setStep(1)}>
+            <button className={styles.nextBtn} disabled={!status} onClick={() => {
+                if (isSTEM) setStep(2)  // STEM skips I-20 step
+                else setStep(1)
+              }}>
               Continue →
             </button>
           </div>
@@ -363,40 +366,48 @@ export default function OnboardingPage({ user, onComplete }) {
           <div className={styles.stepContent}>
             <div className={styles.stepBadge} style={{ color: '#f97316' }}>🎓 OPT Application</div>
             <h1 className={styles.stepTitle}>
-              {isPre ? 'Plan your OPT application' : 'Your OPT application details'}
+              {isPre ? 'Plan your OPT application' : isSTEM ? 'Your OPT dates' : 'Your OPT application details'}
             </h1>
             <p className={styles.stepSub}>
               {isPre
                 ? "Enter your planned application date — we'll verify it's within your window"
-                : 'Enter when you applied and when your OPT started — we verify both are within the allowed window'}
+                : isSTEM
+                  ? 'Enter your OPT start date from your EAD card — all other dates calculate automatically'
+                  : 'Enter when you applied and when your OPT started — we verify both are within the allowed window'}
             </p>
 
-            <div className={styles.field}>
-              <label className={styles.label}>
-                {isPre ? 'When do you plan to apply for OPT?' : 'When did you submit your OPT application?'}
-              </label>
-              <input type="date" className={styles.input} value={optAppliedDate}
-                min={dates.optApplyOpen} max={dates.optApplyDeadline}
-                onChange={e => setOptAppliedDate(e.target.value)} />
-              {optAppliedDate && (
-                isAfter(optAppliedDate, dates.optApplyDeadline)
-                  ? <p className={styles.errorHint}>⚠ After deadline of {fmt(dates.optApplyDeadline)}</p>
-                  : isBefore(optAppliedDate, dates.optApplyOpen)
-                    ? <p className={styles.errorHint}>⚠ Before window opens on {fmt(dates.optApplyOpen)}</p>
-                    : <p className={styles.successHint}>✓ Within the allowed window</p>
-              )}
-            </div>
-
-            {!isPre && (
+            {!isSTEM && (
               <div className={styles.field}>
-                <label className={styles.label}>What is your OPT start date? (from your EAD card)</label>
+                <label className={styles.label}>
+                  {isPre ? 'When do you plan to apply for OPT?' : 'When did you submit your OPT application?'}
+                </label>
+                <input type="date" className={styles.input} value={optAppliedDate}
+                  min={dates.optApplyOpen} max={dates.optApplyDeadline}
+                  onChange={e => setOptAppliedDate(e.target.value)} />
+                {optAppliedDate && (
+                  isAfter(optAppliedDate, dates.optApplyDeadline)
+                    ? <p className={styles.errorHint}>⚠ After deadline of {fmt(dates.optApplyDeadline)}</p>
+                    : isBefore(optAppliedDate, dates.optApplyOpen)
+                      ? <p className={styles.errorHint}>⚠ Before window opens on {fmt(dates.optApplyOpen)}</p>
+                      : <p className={styles.successHint}>✓ Within the allowed window</p>
+                )}
+              </div>
+            )}
+
+            {(!isPre || isSTEM) && (
+              <div className={styles.field}>
+                <label className={styles.label}>OPT start date (from your EAD card)</label>
                 <input type="date" className={styles.input} value={optStartDate}
-                  min={dates.optEarliestStart} max={dates.optLatestStart}
+                  min={isSTEM ? undefined : dates.optEarliestStart}
+                  max={isSTEM ? undefined : dates.optLatestStart}
                   onChange={e => setOptStartDate(e.target.value)} />
-                {optStartDate && (
+                {optStartDate && !isSTEM && (
                   isAfter(optStartDate, dates.optLatestStart)
                     ? <p className={styles.errorHint}>⚠ OPT must start by {fmt(dates.optLatestStart)}</p>
                     : <p className={styles.successHint}>✓ Within the allowed window</p>
+                )}
+                {optStartDate && isSTEM && (
+                  <p className={styles.successHint}>✓ OPT end and all STEM dates calculated automatically</p>
                 )}
               </div>
             )}
@@ -415,12 +426,12 @@ export default function OnboardingPage({ user, onComplete }) {
             )}
 
             <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(1)}>← Back</button>
+              <button className={styles.backBtn} onClick={() => isSTEM ? setStep(0) : setStep(1)}>← Back</button>
               <button className={styles.nextBtn}
-                disabled={!optAppliedDate || (!isPre && !optStartDate)}
+                disabled={isSTEM ? !optStartDate : (!optAppliedDate || (!isPre && !optStartDate))}
                 onClick={() => {
-                  if (!checkOptApply()) return
-                  if (!isPre && !checkOptStart()) return
+                  if (!isSTEM && !checkOptApply()) return
+                  if (!isSTEM && !isPre && !checkOptStart()) return
                   setStep(3)
                 }}>
                 Continue →
@@ -505,10 +516,11 @@ export default function OnboardingPage({ user, onComplete }) {
             <div className={styles.navRow}>
               <button className={styles.backBtn} onClick={() => setStep(2)}>← Back</button>
               <button className={styles.nextBtn} onClick={() => {
-                if (isPre || isOPT) setStep(4)   // → review
-                else setStep(4)                   // → STEM details
+                if (isPre || isOPT) setStep(4)
+                else if (isSTEM) setStep(4)        // STEM goes to review (no more STEM apply step here)
+                else setStep(4)
               }}>
-                {isPre || isOPT ? 'Review & finish →' : 'Continue →'}
+                {isPre || isOPT || isSTEM ? 'Review & finish →' : 'Continue →'}
               </button>
             </div>
           </div>
@@ -593,7 +605,7 @@ export default function OnboardingPage({ user, onComplete }) {
         )}
 
         {/* ── Final review ── */}
-        {((step === 4 && (isPre || isOPT)) || step === 6) && (
+        {((step === 4 && (isPre || isOPT)) || (step === 4 && isSTEM) || step === 6) && (
           <div className={styles.stepContent}>
             <h1 className={styles.stepTitle}>You're all set! 🎉</h1>
             <p className={styles.stepSub}>Your complete F-1 timeline — all dates verified</p>
