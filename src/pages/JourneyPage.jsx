@@ -130,12 +130,18 @@ function OPTStage({ data, isActive, isFuture, onExpand, expanded, checks, toggle
   const pct         = result?.limit ? Math.min(100, Math.round(daysUsed / result.limit * 100)) : 0
   const color       = result ? STATUS_COLOR[result.status] : 'var(--text-muted)'
 
+  const stemAlreadyApplied = checks?.opt_stem_applied
   const nextSteps = []
+
   if (applyBy && daysToApply !== null) {
-    if (daysToApply > 0 && daysToApply <= 120)
+    if (stemAlreadyApplied) {
+      // User already applied — show positive status
+      nextSteps.push({ icon: '✅', label: 'STEM OPT application submitted', note: 'Good — continue working with your DSO on the approval process', color: 'var(--success)' })
+    } else if (daysToApply > 0 && daysToApply <= 120) {
       nextSteps.push({ icon: '📅', label: 'Apply for STEM OPT extension', note: 'File I-765 with DSO recommendation letter — 90 days before OPT ends', deadline: `by ${fmtDate(applyBy)}`, color: daysToApply <= 30 ? 'var(--danger)' : 'var(--warning)' })
-    else if (daysToApply <= 0)
-      nextSteps.push({ icon: '⚠', label: 'STEM OPT deadline has passed', note: 'Contact your DSO immediately to discuss your options', color: 'var(--danger)' })
+    } else if (daysToApply <= 0) {
+      nextSteps.push({ icon: '⚠', label: 'STEM OPT application window has passed', note: 'If you have already applied, check the box above. If not, contact your DSO immediately.', color: 'var(--danger)' })
+    }
   }
   if (result?.status === 'warn' || result?.status === 'urgent')
     nextSteps.push({ icon: '💼', label: 'Find employment soon', note: `Only ${remaining} unemployment days remaining on OPT`, color: 'var(--warning)' })
@@ -270,14 +276,22 @@ function STEMStage({ optData, stemData, optResult, isActive, isFuture, onExpand,
               {isActive && stemResult
                 ? `${cumulative} / 150 cumulative days used · ${remaining} remaining`
                 : isFuture && applyBy
-                  ? daysToApply > 0 ? `Apply by ${fmtDate(applyBy)} — ${daysToApply} days away` : 'Apply now — deadline passed'
+                  ? checks?.opt_stem_applied
+                    ? `Application submitted — awaiting approval`
+                    : daysToApply > 0
+                      ? `Apply by ${fmtDate(applyBy)} — ${daysToApply} days away`
+                      : 'Application window passed — check status with DSO'
                   : '24-month work authorization extension'}
             </div>
           </div>
         </div>
         <div className={styles.stageRight}>
           <span className={styles.stageBadge} style={{ color: isFuture ? 'var(--accent)' : color, background: isFuture ? 'var(--accent-glow)' : `${color}18` }}>
-            {isActive && stemResult ? STATUS_LABEL[stemResult.status] : isFuture ? 'Plan ahead' : 'Upcoming'}
+            {isActive && stemResult
+              ? STATUS_LABEL[stemResult.status]
+              : isFuture
+                ? checks?.opt_stem_applied ? 'Applied ✓' : 'Plan ahead'
+                : 'Upcoming'}
           </span>
           <span className={styles.expandIcon}>{expanded ? '▲' : '▼'}</span>
         </div>
