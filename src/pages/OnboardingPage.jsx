@@ -204,7 +204,6 @@ export default function OnboardingPage({ user, onComplete }) {
     const data = {
       user_id:    user.id,
       visa_type:  visaType,
-      status_detail: status,
       i20_end:    i20End || null,
       opt_applied_date:  optAppliedDate  || null,
       stem_applied_date: stemAppliedDate || null,
