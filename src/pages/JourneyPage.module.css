@@ -1,214 +1,183 @@
-.page { max-width: 780px; margin: 0 auto; }
+.page { max-width: 720px; margin: 0 auto; }
 .pageHeader { margin-bottom: 2rem; }
-.pageHeader h1 { font-size: 2rem; }
-.subtitle { color: var(--text-secondary); margin-top: 4px; font-size: 0.875rem; }
+.pageHeader h1 { font-size: 2rem; font-weight: 500; color: var(--text-primary); }
+.subtitle { font-size: 0.875rem; color: var(--text-secondary); margin-top: 4px; }
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-secondary); }
-.disclaimer { text-align: center; font-size: 0.75rem; color: var(--text-muted); margin-top: 2rem; }
+.disclaimer { text-align: center; font-size: 0.72rem; color: var(--text-muted); margin-top: 2rem; }
 
-/* Timeline */
-.timeline { position: relative; display: flex; flex-direction: column; gap: 0; }
-.connector {
+/* ── Timeline ── */
+.timeline {
+  position: relative;
+  padding-left: 28px;
+}
+.timeline::before {
+  content: '';
   position: absolute;
-  left: 22px;
-  top: 28px;
-  bottom: 40px;
+  left: 7px;
+  top: 12px;
+  bottom: 12px;
   width: 2px;
   background: var(--border);
-  z-index: 0;
-}
-.stageArrow {
-  text-align: left;
-  padding: 6px 0 6px 52px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  position: relative;
-  z-index: 1;
 }
 
-/* Stage */
-.stage {
+/* ── Event ── */
+.event {
   position: relative;
+  margin-bottom: 8px;
+}
+.dot {
+  position: absolute;
+  left: -24px;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: var(--surface-1);
   z-index: 1;
+  transition: transform 0.15s;
+}
+.event:hover .dot { transform: scale(1.2); }
+.dotDone   { border-color: var(--success); background: var(--success) !important; }
+.dotNow    { border-color: var(--accent); background: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow); }
+.dotUrgent { border-color: var(--warning); background: var(--warning) !important; }
+.dotDanger { border-color: var(--danger); background: var(--danger) !important; }
+.dotFuture { border-color: var(--border-md); }
+
+/* ── Card ── */
+.card {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  margin-bottom: 8px;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-.stageActive { border-color: var(--border-md); }
-.stageFuture { opacity: 0.75; }
-.stageFuture:hover { opacity: 1; }
-
-.stageHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.1rem 1.25rem;
+  padding: 12px 14px;
   cursor: pointer;
-  gap: 12px;
+  transition: border-color 0.15s;
+  border-left-width: 3px;
 }
-.stageLeft { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.card:hover { border-color: var(--border-md); }
+.cardDone   { border-left-color: var(--success); }
+.cardNow    { border-left-color: var(--accent); background: rgba(249,115,22,0.04); }
+.cardUrgent { border-left-color: var(--warning); background: rgba(245,158,11,0.04); }
+.cardDanger { border-left-color: var(--danger); background: rgba(239,68,68,0.04); }
+.cardFuture { border-left-color: var(--border); opacity: 0.7; }
+.cardFuture:hover { opacity: 1; }
 
-.stageDot {
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  border: 2px solid;
+/* ── Card top row ── */
+.cardTop {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
-  background: var(--surface-1);
+  gap: 10px;
 }
-
-.stageTitle {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.stagePeriod {
-  font-size: 0.82rem;
-  font-weight: 400;
-  color: var(--text-muted);
-  margin-left: 4px;
-}
-.stageSummary {
-  font-size: 0.8rem;
-  margin-top: 2px;
-}
-
-.stageRight { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.stageBadge {
+.eventDate {
   font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 90px;
+  flex-shrink: 0;
+}
+.eventLabel {
+  font-size: 0.9rem;
   font-weight: 500;
-  padding: 3px 10px;
+  color: var(--text-primary);
+  flex: 1;
+}
+.badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 3px 9px;
   border-radius: 20px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
-.expandIcon { font-size: 0.65rem; color: var(--text-muted); }
-
-/* Progress bar */
-.progressWrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 1.25rem 10px;
-}
-.progressBar {
-  flex: 1;
-  height: 6px;
-  background: var(--surface-3);
-  border-radius: 3px;
-  position: relative;
-  overflow: hidden;
-}
-.progressFill {
-  position: absolute;
-  top: 0; height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-.progressSegment {
-  position: absolute;
-  top: 0; left: 0; height: 100%;
-}
-.progressPct {
-  font-size: 0.72rem;
+.badgeDone   { background: var(--success-soft); color: var(--success); }
+.badgeNow    { background: var(--accent-glow); color: var(--accent); }
+.badgeUrgent { background: var(--warning-soft); color: var(--warning); }
+.badgeDanger { background: var(--danger-soft); color: var(--danger); }
+.badgeFuture { background: var(--surface-3); color: var(--text-muted); }
+.chevron {
+  font-size: 0.65rem;
   color: var(--text-muted);
-  min-width: 28px;
-  text-align: right;
+  flex-shrink: 0;
+  transition: transform 0.2s;
 }
 
-/* Stage body */
-.stageBody {
-  padding: 0 1.25rem 1.25rem;
+/* ── Detail ── */
+.detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 1rem;
-}
-
-/* Plain-English status summary */
-.summaryBox {
-  display: flex;
-  align-items: flex-start;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid;
 }
-.summaryDot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 5px;
+.detailNote {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
-.summaryText { font-size: 0.875rem; color: var(--text-primary); line-height: 1.5; }
+.detailNote strong { color: var(--text-primary); font-weight: 500; }
 
-/* Carry-over box */
-.carryOverBox {
-  background: var(--surface-3);
-  border: 1px solid var(--border);
+.alertBox {
+  padding: 10px 12px;
+  background: var(--danger-soft);
+  border: 1px solid rgba(239,68,68,0.3);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: var(--danger);
+  line-height: 1.5;
 }
-.carryOverRow {
+
+/* ── Progress bar ── */
+.progWrap { display: flex; flex-direction: column; gap: 5px; }
+.progLabels {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.carryOverLegend {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
+  justify-content: space-between;
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
-
-/* What to do next */
-.nextSteps { display: flex; flex-direction: column; gap: 8px; }
-.nextTitle {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: 2px;
-}
-.nextRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
+.progBar {
+  height: 6px;
   background: var(--surface-3);
-  border: 1px solid;
-  border-radius: var(--radius-md);
-}
-.nextIcon {
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  border-radius: 3px;
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  flex-shrink: 0;
 }
-.nextLabel { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); }
-.nextNote  { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
-.nextDeadline { font-size: 0.78rem; font-weight: 500; margin-left: auto; white-space: nowrap; padding-top: 2px; }
+.progLegend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.legendDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
 
-/* Detail section */
-.detailSection { display: flex; flex-direction: column; gap: 6px; }
-.detailTitle {
+/* ── Stats row ── */
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.stat {
+  background: var(--surface-3);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  text-align: center;
+}
+.statVal   { font-size: 1.4rem; font-weight: 300; color: var(--text-primary); }
+.statLabel { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Gaps ── */
+.gaps { display: flex; flex-direction: column; gap: 2px; }
+.gapsTitle {
   font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
@@ -216,126 +185,53 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
 }
-.gapDates { color: var(--text-secondary); }
+.gapRow:last-child { border-bottom: none; }
 .gapBadge {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 20px;
   background: var(--warning-soft);
   color: var(--warning);
 }
 
-.reqRow {
+/* ── Checklist ── */
+.checklist { display: flex; flex-direction: column; }
+.checkRow {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 6px 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
-}
-.reqOk   { color: var(--success); }
-.reqCheck { color: var(--text-muted); }
-.reqText { color: var(--text-secondary); }
-
-/* Info box */
-.infoBox {
-  padding: 10px 14px;
-  background: var(--surface-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-@media (max-width: 600px) {
-  .stageHeader { padding: 1rem; }
-  .stageBody   { padding: 1rem; }
-  .carryOverRow { gap: 6px; font-size: 0.8rem; }
-}
-
-/* ── Compliance checklist ── */
-.checklistCard {
-  background: var(--surface-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.checklistHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px 6px;
-}
-.checklistTitle {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-.checklistProgress {
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-.checklistBar {
-  height: 3px;
-  background: var(--border);
-  margin: 0 14px 8px;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.checklistRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 9px 14px;
-  border-top: 1px solid var(--border);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: opacity 0.1s;
 }
-.checklistRow:hover { background: var(--surface-2); }
-.checklistDone { background: var(--surface-2); opacity: 0.6; }
-
-.checklistCheck {
-  width: 16px; height: 16px;
+.checkRow:last-child { border-bottom: none; }
+.checkRow:hover { opacity: 0.8; }
+.checkBox {
+  width: 17px;
+  height: 17px;
   border-radius: 4px;
-  border: 1.5px solid;
+  border: 1.5px solid var(--border-md);
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
 }
-.checklistLabel {
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  line-height: 1.4;
-}
-.checklistDeadline {
-  font-size: 0.75rem;
-  margin-top: 2px;
-  font-weight: 500;
-}
-.checklistNote {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.checklistTag {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1px 6px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 2px;
+.checkOn { background: var(--success); border-color: var(--success); }
+.checkText { font-size: 0.85rem; color: var(--text-primary); line-height: 1.4; }
+.checkDone { text-decoration: line-through; color: var(--text-muted); }
+.checkNote { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .timeline { padding-left: 22px; }
+  .eventDate { min-width: 70px; font-size: 0.7rem; }
+  .statRow { grid-template-columns: repeat(3, 1fr); }
 }
