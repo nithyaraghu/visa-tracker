@@ -13,15 +13,15 @@ function fmt(dateStr) {
 }
 function addDays(dateStr, n) {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + n)
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
 }
 function addMonths(dateStr, n) {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
-  d.setMonth(d.getMonth() + n)
-  return d.toISOString().split('T')[0]
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1 + n, d)
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
 }
 function isAfter(a, b)  { return a && b && new Date(a) > new Date(b) }
 function isBefore(a, b) { return a && b && new Date(a) < new Date(b) }
@@ -299,9 +299,9 @@ export default function OnboardingPage({ user, onComplete }) {
             {i20End && (
               <div className={styles.autoCalcBox}>
                 <div className={styles.autoCalcTitle}>📅 Your OPT application window</div>
-                <DateInfo label="Earliest you can apply" value={fmt(calc.optApplyWindowOpen)} color="var(--text-secondary)" note="90 days before I-20 end" />
-                <DateInfo label="DEADLINE to apply" value={fmt(calc.optApplyDeadline)} color="var(--danger)" note="60 days after I-20 end — do not miss this" />
-                <DateInfo label="OPT must start by" value={fmt(calc.optLatestStart)} color="var(--warning)" note="60 days after I-20 end" />
+                <DateInfo label="Earliest you can apply" value={fmt(calc.optApplyWindowOpen)} color="var(--text-secondary)" />
+                <DateInfo label="DEADLINE to apply" value={fmt(calc.optApplyDeadline)} color="var(--danger)" />
+                <DateInfo label="OPT must start by" value={fmt(calc.optLatestStart)} color="var(--warning)" />
               </div>
             )}
 
@@ -348,10 +348,10 @@ export default function OnboardingPage({ user, onComplete }) {
             {optStartDate && calc.optEnd && (
               <div className={styles.autoCalcBox}>
                 <div className={styles.autoCalcTitle}>✓ Auto-calculated from your OPT start date</div>
-                <DateInfo label="OPT end date" value={fmt(calc.optEnd)} color="var(--accent)" note="12 months from start − 1 day" />
-                {isSTEM && <DateInfo label="STEM OPT apply by" value={fmt(calc.stemApplyDeadline)} color="var(--warning)" note="90 days before OPT ends" />}
-                {isSTEM && <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" note="Day after OPT ends" />}
-                {isSTEM && <DateInfo label="STEM OPT end" value={fmt(calc.stemEnd)} color="var(--success)" note="24 months from STEM start" />}
+                <DateInfo label="OPT end date (EAD expiry)" value={fmt(calc.optEnd)} color="var(--accent)" />
+                {isSTEM && <DateInfo label="Apply for STEM OPT by" value={fmt(calc.stemApplyDeadline)} color="var(--warning)" />}
+                {isSTEM && <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" />}
+                {isSTEM && <DateInfo label="STEM OPT end (EAD expiry)" value={fmt(calc.stemEnd)} color="var(--success)" />}
               </div>
             )}
 
@@ -456,8 +456,8 @@ export default function OnboardingPage({ user, onComplete }) {
             {calc.stemStart && (
               <div className={styles.autoCalcBox}>
                 <div className={styles.autoCalcTitle}>✓ Your STEM OPT dates</div>
-                <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" note="Day after OPT ends" />
-                <DateInfo label="STEM OPT end"   value={fmt(calc.stemEnd)}   color="var(--success)" note="24 months from start" />
+                <DateInfo label="STEM OPT start" value={fmt(calc.stemStart)} color="var(--success)" />
+                <DateInfo label="STEM OPT end (EAD expiry)" value={fmt(calc.stemEnd)} color="var(--success)" />
               </div>
             )}
 
