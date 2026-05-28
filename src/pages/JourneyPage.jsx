@@ -261,35 +261,20 @@ export default function JourneyPage({ visaData, user }) {
         {/* ── Apply for STEM OPT deadline ── */}
         {!isSTEM && stemApplyBy && optStart && (
           <Event
-            type={
-              stemApplied ? 'done' :
-              stemDaysAway === null ? 'future' :
-              stemDaysAway > 90 ? 'future' :
-              stemDaysAway > 30 ? 'urgent' :
-              stemDaysAway >= 0 ? 'danger' : 'danger'
-            }
+            type={stemApplied ? 'done' : 'future'}
             date={fmtDate(stemApplyBy)}
             label="Apply for STEM OPT"
-            badge={
-              stemApplied ? 'Applied ✓' :
-              stemDaysAway === null ? 'Upcoming' :
-              stemDaysAway < 0  ? 'Deadline passed' :
-              `${stemDaysAway} days away`
-            }
-            badgeType={
-              stemApplied ? 'done' :
-              stemDaysAway !== null && stemDaysAway < 30 ? 'danger' :
-              stemDaysAway !== null && stemDaysAway < 90 ? 'urgent' : 'future'
-            }
+            badge={stemApplied ? 'Applied ✓' : 'Action required'}
+            badgeType={stemApplied ? 'done' : 'future'}
           >
-            {!stemApplied && stemDaysAway !== null && stemDaysAway < 0 && (
-              <div className={styles.alertBox}>
-                🚨 The STEM OPT application deadline has passed. If you have not applied, contact your DSO immediately.
-              </div>
-            )}
-            {!stemApplied && stemDaysAway !== null && stemDaysAway >= 0 && (
+            {!stemApplied && (
               <p className={styles.detailNote}>
-                File your STEM OPT application at least 90 days before your OPT expires on <strong>{fmtDate(optEnd)}</strong>. Do not miss this deadline.
+                Apply for STEM OPT between <strong>{fmtDate(addD(optEnd, -90))}</strong> and <strong>{fmtDate(optEnd)}</strong> — file at least 90 days before your OPT expires. Once you apply, check the box below.
+              </p>
+            )}
+            {stemApplied && (
+              <p className={styles.detailNote}>
+                ✓ STEM OPT application submitted. STEM period starts <strong>{fmtDate(stemStart)}</strong>.
               </p>
             )}
             <div className={styles.checklist}>
